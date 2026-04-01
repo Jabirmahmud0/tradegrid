@@ -11,12 +11,42 @@ import { DepthChart } from '../orderbook/DepthChart';
 import { SymbolSelector } from './SymbolSelector';
 import { ReplayControls } from '../replay/ReplayControls';
 import { DebugPanel } from '../debug/DebugPanel';
+import { marketClient } from '../../services/market-client';
 
 // Stabilize empty array to prevent infinite re-renders in useSyncExternalStore
 const EMPTY_CANDLES: any[] = [];
 
 export const TradingDashboard: React.FC = () => {
   const [activeSymbol, setActiveSymbol] = React.useState('BTC-USD');
+  const [activeTab, setActiveTab] = React.useState('heatmap');
+  
+  const { mode, status, setReplayStatus, speed } = useLiveStore();
+
+  // Keyboard Shortcuts Integration
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      switch (e.key.toLowerCase()) {
+        case ' ': // Space
+          e.preventDefault();
+          if (mode === 'REPLAY') {
+            const nextStatus = status === 'PLAYING' ? 'PAUSED' : 'PLAYING';
+            setReplayStatus(nextStatus);
+            if (nextStatus === 'PLAYING') marketClient.startReplay(speed);
+            else marketClient.stopReplay();
+          }
+          break;
+        case 'h': setActiveTab('heatmap'); break;
+        case 'd': setActiveTab('depth'); break;
+        case 'i': setActiveTab('history'); break;
+        case 'e': setActiveTab('executions'); break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mode, status, speed, setReplayStatus]);
   
   // Memoize symbols array or pass as string to maintain hook stability
   useMarketStream(activeSymbol);
@@ -79,12 +109,12 @@ export const TradingDashboard: React.FC = () => {
 
       {/* Bottom Panels (Heatmap / Depth / History / Info) */}
       <div className="col-span-12 lg:col-span-8 row-span-5 lg:row-span-4">
-        <Tabs defaultValue="heatmap" className="h-full flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="bg-zinc-900/50 border-b border-zinc-800 rounded-none h-10 px-2 gap-2 flex items-center justify-start">
-            <TabsTrigger value="heatmap" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Liquidity Heatmap</TabsTrigger>
-            <TabsTrigger value="depth" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Depth Map</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Trade History</TabsTrigger>
-            <TabsTrigger value="executions" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">My Executions</TabsTrigger>
+            <TabsTrigger value="heatmap" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Liquidity Heatmap [H]</TabsTrigger>
+            <TabsTrigger value="depth" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Depth Map [D]</TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Trade History [I]</TabsTrigger>
+            <TabsTrigger value="executions" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">My Executions [E]</TabsTrigger>
           </TabsList>
           <div className="flex-1 bg-zinc-950 border-x border-b border-zinc-900 rounded-b-sm overflow-hidden">
             <TabsContent value="heatmap" className="h-full m-0 p-0 overflow-hidden">
@@ -104,7 +134,7 @@ export const TradingDashboard: React.FC = () => {
       </div>
 
       {/* Replay Controls Layer (Floating Bottom Center) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass px-6 py-2 rounded-full !bg-zinc-950/80 !backdrop-blur-xl border-zinc-500/30">
         <ReplayControls />
       </div>
     </div>
