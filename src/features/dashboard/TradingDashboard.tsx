@@ -8,16 +8,19 @@ import { TradeTape } from '../trades/TradeTape';
 import { OrderBook } from '../orderbook/OrderBook';
 import { MarketHeatmap } from '../heatmap/MarketHeatmap';
 import { DepthChart } from '../orderbook/DepthChart';
+import { SymbolSelector } from './SymbolSelector';
 
 export const TradingDashboard: React.FC = () => {
-  // Subscribe to default symbols
-  useMarketStream(['BTC-USD', 'ETH-USD']);
-
-  // Get latest data from store
-  const btcCandles = useLiveStore(state => state.candles['BTC-USD-1m'] || []);
-  const latestCandle = btcCandles[0]; 
+  const [activeSymbol, setActiveSymbol] = React.useState('BTC-USD');
   
-  const btcPrice = latestCandle?.c.toLocaleString(undefined, { 
+  // Always subscribe to the active symbol
+  useMarketStream([activeSymbol]);
+
+  // Get data for the active symbol
+  const candles = useLiveStore(state => state.candles[`${activeSymbol}-1m`] || []);
+  const latestCandle = candles[candles.length - 1]; 
+  
+  const price = latestCandle?.c.toLocaleString(undefined, { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   }) || '---';
@@ -30,18 +33,21 @@ export const TradingDashboard: React.FC = () => {
       <Card 
         variant="outline" 
         header={
-          <div className="flex items-center gap-4">
-            <span className="text-zinc-100 font-bold text-sm lg:text-base">BTC-USD <span className="text-zinc-500 font-normal ml-1">Perpetual</span></span>
-            <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
-              <span className={`font-mono font-bold ${priceColor}`}>{btcPrice}</span>
-              <span className="text-zinc-600 font-normal text-[10px]">Index: {btcPrice}</span>
+          <div className="flex items-center justify-between w-full pr-4">
+            <div className="flex items-center gap-4">
+              <span className="text-zinc-100 font-bold text-sm lg:text-base">{activeSymbol} <span className="text-zinc-500 font-normal ml-1">Perpetual</span></span>
+              <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
+                <span className={`font-mono font-bold ${priceColor}`}>{price}</span>
+                <span className="text-zinc-600 font-normal text-[0.65rem]">Mark: {price}</span>
+              </div>
             </div>
+            <SymbolSelector activeSymbol={activeSymbol} onSelect={setActiveSymbol} />
           </div>
         }
         className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8 overflow-hidden"
       >
         <div className="h-full w-full bg-zinc-900/5">
-          <CandleChart candles={btcCandles} />
+          <CandleChart candles={candles} />
         </div>
       </Card>
 
@@ -51,7 +57,7 @@ export const TradingDashboard: React.FC = () => {
         header="Order Book"
         className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
       >
-        <OrderBook symbol="BTC-USD" />
+        <OrderBook symbol={activeSymbol} />
       </Card>
 
       {/* Recent Trades (Tape) */}
@@ -60,7 +66,7 @@ export const TradingDashboard: React.FC = () => {
         header="Recent Trades"
         className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
       >
-        <TradeTape symbol="BTC-USD" />
+        <TradeTape symbol={activeSymbol} />
       </Card>
 
       {/* Bottom Panels (Heatmap / Depth / History / Info) */}
@@ -77,7 +83,7 @@ export const TradingDashboard: React.FC = () => {
                <MarketHeatmap />
             </TabsContent>
             <TabsContent value="depth" className="h-full m-0 p-0 overflow-hidden">
-               <DepthChart symbol="BTC-USD" />
+               <DepthChart symbol={activeSymbol} />
             </TabsContent>
             <TabsContent value="history" className="h-full m-0 p-4 text-zinc-500 text-xs">
               Transaction logging...
