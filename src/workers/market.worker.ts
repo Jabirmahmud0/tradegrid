@@ -32,9 +32,16 @@ interface RawOrderBook {
   a: [string, string][];
 }
 
+import { StreamEvent, NormalizedTrade, NormalizedCandle } from '../types/stream.types.js';
+
 let socket: WebSocket | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+// COALESCING STATE
+let eventBuffer: StreamEvent[] = [];
+const FLUSH_INTERVAL_MS = 16; // ~60fps coalescing
+let flushTimer: any = null;
 
 self.onmessage = (event: MessageEvent) => {
   const { type, payload } = event.data;
@@ -66,13 +73,14 @@ function connect(url: string) {
     console.log('[Worker] WebSocket Connected');
     reconnectAttempts = 0;
     self.postMessage({ type: 'CONNECTED' });
+    startFlushLoop();
   };
 
   socket.onmessage = (event: MessageEvent) => {
     if (event.data instanceof ArrayBuffer) {
         try {
             const rawData = decode(event.data) as any;
-            normalizeAndDispatch(rawData);
+            normalizeAndBuffer(rawData);
         } catch (err) {
             console.error('[Worker] MessagePack decode failed:', err);
         }
@@ -90,6 +98,7 @@ function connect(url: string) {
   socket.onclose = () => {
     console.log('[Worker] WebSocket Closed');
     self.postMessage({ type: 'DISCONNECTED' });
+    stopFlushLoop();
     
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
@@ -116,11 +125,70 @@ function send(data: any) {
 }
 
 /**
- * Normalization logic (Phase 3.2 placeholder)
- * We transform raw server types to our shared stream types here.
+ * Normalization & Coalescing Logic
  */
-function normalizeAndDispatch(raw: any) {
-    // Current simple dispatch back to main thread
-    // In Phase 3.2/3.3 we will add high-performance normalization and batching
-    self.postMessage({ type: 'DATA', payload: raw });
+function normalizeAndBuffer(raw: any) {
+  let event: StreamEvent | null = null;
+
+  switch (raw.e) {
+    case 'trade': {
+      const rawTrade = raw as RawTrade;
+      event = {
+        t: 'trade',
+        sym: rawTrade.s,
+        px: parseFloat(rawTrade.p),
+        qty: parseFloat(rawTrade.q),
+        side: rawTrade.m ? 's' : 'b',
+        ts: rawTrade.E,
+      };
+      break;
+    }
+    case 'candle': {
+      const rawCandle = raw as RawCandle;
+      event = {
+        t: 'candle',
+        sym: rawCandle.s,
+        interval: '1m', // Default to 1m for this demo
+        o: parseFloat(rawCandle.k.o),
+        h: parseFloat(rawCandle.k.h),
+        l: parseFloat(rawCandle.k.l),
+        c: parseFloat(rawCandle.k.c),
+        v: parseFloat(rawCandle.k.v),
+        ts: rawCandle.E,
+      };
+      break;
+    }
+    case 'book': {
+      const rawBook = raw as RawOrderBook;
+      event = {
+        t: 'book',
+        sym: rawBook.s,
+        bids: rawBook.b.map(([p, s]) => [parseFloat(p), parseFloat(s)]),
+        asks: rawBook.a.map(([p, s]) => [parseFloat(p), parseFloat(s)]),
+        ts: rawBook.E,
+      };
+      break;
+    }
+  }
+
+  if (event) {
+    eventBuffer.push(event);
+  }
+}
+
+function startFlushLoop() {
+  if (flushTimer) return;
+  flushTimer = setInterval(() => {
+    if (eventBuffer.length > 0) {
+      self.postMessage({ type: 'BATCH_DATA', payload: eventBuffer });
+      eventBuffer = [];
+    }
+  }, FLUSH_INTERVAL_MS);
+}
+
+function stopFlushLoop() {
+  if (flushTimer) {
+    clearInterval(flushTimer);
+    flushTimer = null;
+  }
 }
