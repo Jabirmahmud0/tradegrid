@@ -1,4 +1,4 @@
-import { MarketSimulator, PriceTick } from './simulation';
+import { MarketSimulator, PriceTick } from './simulation.js';
 
 export type EventType = 'trade' | 'candle' | 'book' | 'quote' | 'heatmap';
 

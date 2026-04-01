@@ -1,8 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { encode } from '@msgpack/msgpack';
 import http from 'http';
-import { MarketSimulator } from './engine/simulation';
-import { DataGenerator } from './engine/generators';
+import { MarketSimulator } from './engine/simulation.js';
+import { DataGenerator } from './engine/generators.js';
 
 const PORT = 4000;
 const server = http.createServer();
@@ -20,14 +20,14 @@ interface Client {
 
 const clients = new Map<string, Client>();
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws: WebSocket) => {
   const id = Math.random().toString(36).substring(2, 11);
   const client: Client = { ws, id, subscriptions: new Set() };
   clients.set(id, client);
 
   console.log(`[Server] Client connected: ${id} (Total: ${clients.size})`);
 
-  ws.on('message', (data) => {
+  ws.on('message', (data: Buffer) => {
     try {
       const message = JSON.parse(data.toString());
       handleMessage(client, message);
