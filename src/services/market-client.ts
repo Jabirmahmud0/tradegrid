@@ -4,14 +4,21 @@ import { StreamEvent, NormalizedTrade, NormalizedCandle, BookDeltaEvent } from '
 class MarketClient {
   private worker: Worker | null = null;
   private isConnected = false;
+  
+  // Stats tracking
   private eventCount = 0;
   private lastStatTime = Date.now();
   private eps = 0;
+  
+  // FPS tracking
+  private frameCount = 0;
+  private lastFrameTime = Date.now();
+  private fps = 0;
 
   constructor() {
-    // Only initialize in browser environment
     if (typeof window !== 'undefined') {
       this.initWorker();
+      this.startFPSMonitor();
     }
   }
 
@@ -22,22 +29,27 @@ class MarketClient {
 
     this.worker.onmessage = (event) => {
       const { type, payload } = event.data;
-
       switch (type) {
-        case 'CONNECTED':
-          console.log('[MarketClient] Connected to server');
-          break;
-        case 'DISCONNECTED':
-          console.log('[MarketClient] Disconnected from server');
-          break;
-        case 'BATCH_DATA':
-          this.handleBatchData(payload as StreamEvent[]);
-          break;
-        case 'CONTROL':
-          console.log('[MarketClient] Control Event:', payload);
-          break;
+        case 'CONNECTED': this.isConnected = true; break;
+        case 'DISCONNECTED': this.isConnected = false; break;
+        case 'BATCH_DATA': this.handleBatchData(payload as StreamEvent[]); break;
       }
     };
+  }
+
+  private startFPSMonitor() {
+    const tick = () => {
+        this.frameCount++;
+        const now = Date.now();
+        if (now - this.lastFrameTime >= 1000) {
+            this.fps = Math.round((this.frameCount * 1000) / (now - this.lastFrameTime));
+            this.frameCount = 0;
+            this.lastFrameTime = now;
+            useLiveStore.getState().setMetrics({ fps: this.fps });
+        }
+        requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   public connect(url: string = 'ws://localhost:4000') {
@@ -56,61 +68,44 @@ class MarketClient {
     this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'set-scenario', mode } });
   }
 
-  public getStats() {
-    return {
-        isConnected: this.isConnected,
-        eps: this.eps
-    };
+  public startReplay(speed: number = 1) {
+    this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-start', speed } });
+  }
+
+  public stopReplay() {
+    this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-stop' } });
   }
 
   private handleBatchData(events: StreamEvent[]) {
-    // Track stats
     this.eventCount += events.length;
     const now = Date.now();
     if (now - this.lastStatTime >= 1000) {
         this.eps = Math.round((this.eventCount * 1000) / (now - this.lastStatTime));
         this.eventCount = 0;
         this.lastStatTime = now;
-        
-        // Dispatch to debug store
         useLiveStore.getState().setMetrics({ eventsPerSec: this.eps });
     }
 
     const store = useLiveStore.getState();
-    
-    // Group events by type to use batch dispatchers
     const trades: NormalizedTrade[] = [];
-    const candles: Record<string, NormalizedCandle> = {}; // Keep only latest candle per symbol in batch
+    const candles: Record<string, NormalizedCandle> = {};
     const books: BookDeltaEvent[] = [];
 
     events.forEach(event => {
-      switch (event.t) {
-        case 'trade':
-          trades.push(event as NormalizedTrade);
-          break;
-        case 'candle':
-          const candle = event as NormalizedCandle;
-          candles[candle.sym] = candle;
-          break;
-        case 'book':
-          books.push(event as BookDeltaEvent);
-          break;
+      if (event.t === 'trade') trades.push(event as NormalizedTrade);
+      else if (event.t === 'candle') {
+        const c = event as NormalizedCandle;
+        candles[c.sym] = c;
       }
+      else if (event.t === 'book') books.push(event as BookDeltaEvent);
     });
 
-    // Atomic dispatches to Zustand slices
     if (trades.length > 0) store.addTrades(trades);
+    Object.values(candles).forEach(c => store.setCandle(c));
     
-    Object.values(candles).forEach(candle => {
-      store.setCandle(candle);
-    });
-
-    // For book deltas, we take the latest per symbol in this frame
     const latestBooks: Record<string, BookDeltaEvent> = {};
     books.forEach(b => latestBooks[b.sym] = b);
-    Object.values(latestBooks).forEach(book => {
-      store.applyOrderBookDelta(book);
-    });
+    Object.values(latestBooks).forEach(b => store.applyOrderBookDelta(b));
   }
 }
 

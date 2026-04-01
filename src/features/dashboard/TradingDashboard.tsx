@@ -9,6 +9,8 @@ import { OrderBook } from '../orderbook/OrderBook';
 import { MarketHeatmap } from '../heatmap/MarketHeatmap';
 import { DepthChart } from '../orderbook/DepthChart';
 import { SymbolSelector } from './SymbolSelector';
+import { ReplayControls } from '../replay/ReplayControls';
+import { DebugPanel } from '../debug/DebugPanel';
 
 // Stabilize empty array to prevent infinite re-renders in useSyncExternalStore
 const EMPTY_CANDLES: any[] = [];
@@ -44,7 +46,10 @@ export const TradingDashboard: React.FC = () => {
                 <span className="text-zinc-600 font-normal text-[0.65rem]">Mark: {price}</span>
               </div>
             </div>
-            <SymbolSelector activeSymbol={activeSymbol} onSelect={setActiveSymbol} />
+            <div className="flex items-center gap-3">
+              <DebugPanel />
+              <SymbolSelector activeSymbol={activeSymbol} onSelect={setActiveSymbol} />
+            </div>
           </div>
         }
         className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8 overflow-hidden"
@@ -96,6 +101,11 @@ export const TradingDashboard: React.FC = () => {
             </TabsContent>
           </div>
         </Tabs>
+      </div>
+
+      {/* Replay Controls Layer (Floating Bottom Center) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <ReplayControls />
       </div>
     </div>
   );

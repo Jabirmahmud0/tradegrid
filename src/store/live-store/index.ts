@@ -5,7 +5,7 @@ import { createOrderBookSlice, OrderBookSlice } from './orderbook.slice';
 import { createHeatmapSlice, HeatmapSlice } from './heatmap.slice';
 import { createLayoutSlice, LayoutSlice } from '../ui-store/layout.slice';
 import { createThemeSlice, ThemeSlice } from '../ui-store/theme.slice';
-import { createReplaySlice, ReplaySlice } from '../replay-store/replay.slice';
+import { createReplaySlice, ReplaySlice } from './replay.slice';
 import { createDebugSlice, DebugSlice } from './debug.slice';
 
 export interface RootState 
