@@ -1,8 +1,24 @@
 import * as React from 'react';
 import { Card } from '../../components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
+import { useMarketStream } from '../../hooks/useMarketStream';
+import { useLiveStore } from '../../store/live-store';
 
 export const TradingDashboard: React.FC = () => {
+  // Subscribe to default symbols
+  useMarketStream(['BTC-USD', 'ETH-USD']);
+
+  // Get latest data from store
+  const btcCandles = useLiveStore(state => state.candles['BTC-USD-1m'] || []);
+  const latestCandle = btcCandles[0]; // Most recent is at start (due to prepend)
+  
+  const btcPrice = latestCandle?.c.toLocaleString(undefined, { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  }) || '---';
+
+  const priceColor = latestCandle?.isUp ? 'text-green-500' : 'text-red-500';
+
   return (
     <div className="h-full w-full p-1 lg:p-2 grid grid-cols-12 grid-rows-12 gap-1 lg:gap-2 bg-zinc-950">
       {/* Main Chart Area */}
@@ -12,8 +28,8 @@ export const TradingDashboard: React.FC = () => {
           <div className="flex items-center gap-4">
             <span className="text-zinc-100">BTC-USD <span className="text-zinc-500 font-normal">Perpetual</span></span>
             <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
-              <span className="text-green-500">97,432.50</span>
-              <span className="text-zinc-600 font-normal">Index: 97,431.10</span>
+              <span className={`font-mono font-bold ${priceColor}`}>{btcPrice}</span>
+              <span className="text-zinc-600 font-normal">Index: {btcPrice}</span>
             </div>
           </div>
         }

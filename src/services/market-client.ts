@@ -4,6 +4,9 @@ import { StreamEvent, NormalizedTrade, NormalizedCandle, BookDeltaEvent } from '
 class MarketClient {
   private worker: Worker | null = null;
   private isConnected = false;
+  private eventCount = 0;
+  private lastStatTime = Date.now();
+  private eps = 0;
 
   constructor() {
     // Only initialize in browser environment
@@ -22,11 +25,9 @@ class MarketClient {
 
       switch (type) {
         case 'CONNECTED':
-          this.isConnected = true;
           console.log('[MarketClient] Connected to server');
           break;
         case 'DISCONNECTED':
-          this.isConnected = false;
           console.log('[MarketClient] Disconnected from server');
           break;
         case 'BATCH_DATA':
@@ -55,7 +56,26 @@ class MarketClient {
     this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'set-scenario', mode } });
   }
 
+  public getStats() {
+    return {
+        isConnected: this.isConnected,
+        eps: this.eps
+    };
+  }
+
   private handleBatchData(events: StreamEvent[]) {
+    // Track stats
+    this.eventCount += events.length;
+    const now = Date.now();
+    if (now - this.lastStatTime >= 1000) {
+        this.eps = Math.round((this.eventCount * 1000) / (now - this.lastStatTime));
+        this.eventCount = 0;
+        this.lastStatTime = now;
+        
+        // Dispatch to debug store
+        useLiveStore.getState().setMetrics({ eventsPerSec: this.eps });
+    }
+
     const store = useLiveStore.getState();
     
     // Group events by type to use batch dispatchers
@@ -82,14 +102,14 @@ class MarketClient {
     if (trades.length > 0) store.addTrades(trades);
     
     Object.values(candles).forEach(candle => {
-        store.setCandle(candle.sym, candle);
+      store.setCandle(candle);
     });
 
     // For book deltas, we take the latest per symbol in this frame
     const latestBooks: Record<string, BookDeltaEvent> = {};
     books.forEach(b => latestBooks[b.sym] = b);
     Object.values(latestBooks).forEach(book => {
-        store.updateOrderBook(book.sym, book.bids, book.asks);
+      store.applyOrderBookDelta(book);
     });
   }
 }

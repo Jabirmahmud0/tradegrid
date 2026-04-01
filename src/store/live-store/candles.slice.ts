@@ -4,13 +4,13 @@ import { NormalizedCandle, CandleInterval } from '../../types';
 export interface CandlesSlice {
   // Key: symbol-interval
   candles: Record<string, NormalizedCandle[]>;
-  updateCandle: (candle: NormalizedCandle) => void;
+  setCandle: (candle: NormalizedCandle) => void;
   setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) => void;
 }
 
 export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice> = (set) => ({
   candles: {},
-  updateCandle: (candle: NormalizedCandle) =>
+  setCandle: (candle: NormalizedCandle) =>
     set((state: CandlesSlice) => {
       const key = `${candle.sym}-${candle.interval}`;
       const existing = state.candles[key] || [];
