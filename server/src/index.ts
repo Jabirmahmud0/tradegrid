@@ -1,10 +1,16 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { encode } from '@msgpack/msgpack';
 import http from 'http';
+import { MarketSimulator } from './engine/simulation';
+import { DataGenerator } from './engine/generators';
 
-const PORT = process.env.PORT || 4000;
+const PORT = 4000;
 const server = http.createServer();
 const wss = new WebSocketServer({ server });
+
+const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD'];
+const simulator = new MarketSimulator(symbols);
+const generator = new DataGenerator(simulator);
 
 interface Client {
   ws: WebSocket;
@@ -35,8 +41,8 @@ wss.on('connection', (ws) => {
     console.log(`[Server] Client disconnected: ${id} (Total: ${clients.size})`);
   });
 
-  // Send welcome message
-  send(client, { type: 'welcome', id });
+  // Send welcome message (JSON)
+  ws.send(JSON.stringify({ type: 'welcome', id, symbols }));
 });
 
 function handleMessage(client: Client, message: any) {
@@ -53,21 +59,47 @@ function handleMessage(client: Client, message: any) {
       }
       break;
     case 'ping':
-      send(client, { type: 'pong', timestamp: Date.now() });
+      client.ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
       break;
   }
 }
 
-function send(client: Client, data: any) {
-  if (client.ws.readyState === WebSocket.OPEN) {
-    // We will use MessagePack for binary data in production data flows, 
-    // but for control messages (welcome/pong), we use JSON for now 
-    // or we can just encode everything for consistency.
-    // LEAVING JSON FOR NOW for easy debugging until generators are ready.
-    client.ws.send(JSON.stringify(data));
-  }
+// SIMULATION LOOP (Ticker)
+const TICK_INTERVAL = 100; // 10 ticks per second initially
+setInterval(() => {
+  symbols.forEach(symbol => {
+    // 1. Generate Trade (chance ~20%)
+    if (Math.random() > 0.8) {
+      const trade = generator.generateTrade(symbol);
+      broadcast(symbol, trade);
+    }
+
+    // 2. Generate Orderbook (chance ~100% every 500ms instead of every tick)
+    if (Date.now() % 500 < 100) {
+      const book = generator.generateOrderBook(symbol);
+      broadcast(symbol, book);
+    }
+
+    // 3. Generate Candle (every tick for the demo)
+    const candle = generator.generateCandle(symbol);
+    broadcast(symbol, candle);
+  });
+}, TICK_INTERVAL);
+
+/**
+ * Broadcast event to all subbed clients using MessagePack (Binary)
+ */
+function broadcast(symbol: string, event: any) {
+  const binaryData = encode(event);
+  
+  clients.forEach(client => {
+    if (client.subscriptions.has(symbol) && client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(binaryData);
+    }
+  });
 }
 
 server.listen(PORT, () => {
-  console.log(`[Server] Mock Stream Backend running on ws://localhost:${PORT}`);
+  console.log(`[Server] TradeGrid Mock Stream Backend running on ws://localhost:${PORT}`);
+  console.log(`[Server] Simulating symbols: ${symbols.join(', ')}`);
 });
