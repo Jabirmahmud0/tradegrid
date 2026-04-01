@@ -3,6 +3,7 @@ import { encode } from '@msgpack/msgpack';
 import http from 'http';
 import { MarketSimulator } from './engine/simulation.js';
 import { DataGenerator } from './engine/generators.js';
+import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, ScenarioState } from './engine/scenarios.js';
 
 const PORT = 4000;
 const server = http.createServer();
@@ -11,6 +12,9 @@ const wss = new WebSocketServer({ server });
 const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD'];
 const simulator = new MarketSimulator(symbols);
 const generator = new DataGenerator(simulator);
+
+let currentScenario: ScenarioState = { ...DEFAULT_SCENARIO };
+let ticker: NodeJS.Timeout | null = null;
 
 interface Client {
   ws: WebSocket;
@@ -61,35 +65,77 @@ function handleMessage(client: Client, message: any) {
     case 'ping':
       client.ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
       break;
+    case 'set-scenario':
+      handleScenarioChange(message.mode);
+      break;
   }
 }
 
+function handleScenarioChange(mode: string) {
+  switch (mode) {
+    case 'BURST':
+      currentScenario = { ...BURST_SCENARIO };
+      break;
+    case 'FAILURE':
+      currentScenario = { ...FAILURE_SCENARIO };
+      break;
+    default:
+      currentScenario = { ...DEFAULT_SCENARIO };
+      break;
+  }
+  console.log(`[Server] Scenario changed to: ${currentScenario.mode}`);
+  restartTicker();
+}
+
 // SIMULATION LOOP (Ticker)
-const TICK_INTERVAL = 100; // 10 ticks per second initially
-setInterval(() => {
-  symbols.forEach(symbol => {
-    // 1. Generate Trade (chance ~20%)
-    if (Math.random() > 0.8) {
-      const trade = generator.generateTrade(symbol);
-      broadcast(symbol, trade);
-    }
+function startTicker() {
+  if (ticker) return;
 
-    // 2. Generate Orderbook (chance ~100% every 500ms instead of every tick)
-    if (Date.now() % 500 < 100) {
-      const book = generator.generateOrderBook(symbol);
-      broadcast(symbol, book);
-    }
+  const run = () => {
+    symbols.forEach(symbol => {
+      const iterations = currentScenario.mode === 'BURST' ? currentScenario.burstMultiplier : 1;
+      
+      for (let i = 0; i < iterations; i++) {
+        // 1. Generate Trade
+        if (Math.random() > 0.8) {
+          broadcast(symbol, generator.generateTrade(symbol));
+        }
 
-    // 3. Generate Candle (every tick for the demo)
-    const candle = generator.generateCandle(symbol);
-    broadcast(symbol, candle);
-  });
-}, TICK_INTERVAL);
+        // 2. Generate Orderbook
+        if (Date.now() % 500 < 100) {
+          broadcast(symbol, generator.generateOrderBook(symbol));
+        }
+
+        // 3. Generate Candle
+        broadcast(symbol, generator.generateCandle(symbol));
+      }
+    });
+
+    ticker = setTimeout(run, currentScenario.tickInterval);
+  };
+
+  run();
+}
+
+function restartTicker() {
+  if (ticker) {
+    clearTimeout(ticker);
+    ticker = null;
+  }
+  startTicker();
+}
+
+startTicker();
 
 /**
  * Broadcast event to all subbed clients using MessagePack (Binary)
  */
 function broadcast(symbol: string, event: any) {
+  // Failure simulation (drop packets)
+  if (currentScenario.mode === 'FAILURE' && Math.random() < currentScenario.failureRate) {
+    return;
+  }
+
   const binaryData = encode(event);
   
   clients.forEach(client => {
