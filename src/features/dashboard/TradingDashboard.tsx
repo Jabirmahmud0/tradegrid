@@ -10,14 +10,17 @@ import { MarketHeatmap } from '../heatmap/MarketHeatmap';
 import { DepthChart } from '../orderbook/DepthChart';
 import { SymbolSelector } from './SymbolSelector';
 
+// Stabilize empty array to prevent infinite re-renders in useSyncExternalStore
+const EMPTY_CANDLES: any[] = [];
+
 export const TradingDashboard: React.FC = () => {
   const [activeSymbol, setActiveSymbol] = React.useState('BTC-USD');
   
-  // Always subscribe to the active symbol
-  useMarketStream([activeSymbol]);
+  // Memoize symbols array or pass as string to maintain hook stability
+  useMarketStream(activeSymbol);
 
-  // Get data for the active symbol
-  const candles = useLiveStore(state => state.candles[`${activeSymbol}-1m`] || []);
+  // Selector stability: fallback to EMPTY_CANDLES reference instead of new [] literal
+  const candles = useLiveStore(state => state.candles[`${activeSymbol}-1m`] || EMPTY_CANDLES);
   const latestCandle = candles[candles.length - 1]; 
   
   const price = latestCandle?.c.toLocaleString(undefined, { 

@@ -7,6 +7,7 @@ import { marketClient } from '../services/market-client';
  */
 export function useMarketStream(symbols: string | string[]) {
   const symbolList = Array.isArray(symbols) ? symbols : [symbols];
+  const symbolKey = symbolList.join(',');
 
   useEffect(() => {
     // Connect if not already (safely handled by client)
@@ -19,5 +20,5 @@ export function useMarketStream(symbols: string | string[]) {
     return () => {
       marketClient.unsubscribe(symbolList);
     };
-  }, [JSON.stringify(symbolList)]); // Re-run if symbols array contents change
+  }, [symbolKey]); // Use stable string key as dependency
 }
