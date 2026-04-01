@@ -17,16 +17,14 @@ export interface OrderBookSlice {
   applyOrderBookDelta: (delta: BookDeltaEvent) => void;
 }
 
-export const createOrderBookSlice: StateCreator<OrderBookSlice> = (set) => ({
+export const createOrderBookSlice: StateCreator<OrderBookSlice, [], [], OrderBookSlice> = (set) => ({
   books: {},
-  applyOrderBookDelta: (delta) =>
-    set((state) => {
+  applyOrderBookDelta: (delta: BookDeltaEvent) =>
+    set((state: OrderBookSlice) => {
       // In a real app we'd maintain the full book. 
       // For the mock stream, we expect the worker to handle complex normalization.
       // This is the slice mapping the normalized worker output to the store.
-      const current = state.books[delta.sym] || { bids: [], asks: [], lastUpdateId: 0 };
       
-      // Simple transform for now, logic will be handled by worker normalizer
       const transform = (levels: [number, number][]): OrderBookLevel[] => {
         let total = 0;
         return levels.map(([price, size]) => {

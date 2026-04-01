@@ -8,14 +8,14 @@ export interface ReplaySlice extends ReplayState {
   setScrubProgress: (progress: number) => void;
 }
 
-export const createReplaySlice: StateCreator<ReplaySlice> = (set) => ({
+export const createReplaySlice: StateCreator<ReplaySlice, [], [], ReplaySlice> = (set) => ({
   isReplaying: false,
   isPaused: false,
   speed: 1,
   currentTime: 0,
   progress: 0,
-  setReplayMode: (enabled) => set({ isReplaying: enabled }),
-  setPause: (paused) => set({ isPaused: paused }),
-  setSpeed: (speed) => set({ speed }),
-  setScrubProgress: (progress) => set({ progress }),
+  setReplayMode: (enabled: boolean) => set({ isReplaying: enabled }),
+  setPause: (paused: boolean) => set({ isPaused: paused }),
+  setSpeed: (speed: number) => set({ speed }),
+  setScrubProgress: (progress: number) => set({ progress }),
 });

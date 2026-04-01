@@ -1,23 +1,23 @@
-import { StoreState } from '../live-store';
+import { RootState } from '../live-store';
 
 // Selectors are used locally for fine-grained subscriptions
 // Exporting them facilitates reuse and testing
 
-export const selectActiveSymbol = (s: StoreState) => s.activeSymbol;
-export const selectActiveInterval = (s: StoreState) => s.activeInterval;
-export const selectTheme = (s: StoreState) => s.theme;
+export const selectActiveSymbol = (s: RootState) => s.activeSymbol;
+export const selectActiveInterval = (s: RootState) => s.activeInterval;
+export const selectTheme = (s: RootState) => s.theme;
 
 export const selectCandlesForKey = (symbol: string, interval: string) => 
-  (s: StoreState) => s.candles[`${symbol}-${interval}`] || [];
+  (s: RootState) => s.candles[`${symbol}-${interval}`] || [];
 
 export const selectRecentTrades = (n: number) => 
-  (s: StoreState) => s.trades.slice(0, n);
+  (s: RootState) => s.trades.slice(0, n);
 
 export const selectOrderBook = (symbol: string) => 
-  (s: StoreState) => s.books[symbol] || { bids: [], asks: [], lastUpdateId: 0 };
+  (s: RootState) => s.books[symbol] || { bids: [], asks: [], lastUpdateId: 0 };
 
-export const selectMetrics = (s: StoreState) => s.metrics;
-export const selectReplayState = (s: StoreState) => ({
+export const selectMetrics = (s: RootState) => s.metrics;
+export const selectReplayState = (s: RootState) => ({
   isReplaying: s.isReplaying,
   isPaused: s.isPaused,
   speed: s.speed,

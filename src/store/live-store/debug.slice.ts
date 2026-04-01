@@ -16,7 +16,7 @@ export interface DebugSlice {
   setMetrics: (metrics: Partial<PerformanceMetrics>) => void;
 }
 
-export const createDebugSlice: StateCreator<DebugSlice> = (set) => ({
+export const createDebugSlice: StateCreator<DebugSlice, [], [], DebugSlice> = (set) => ({
   metrics: {
     fps: 0,
     frameTime: 0,
@@ -27,8 +27,8 @@ export const createDebugSlice: StateCreator<DebugSlice> = (set) => ({
     dispatchLatency: 0,
     memoryEstimate: 0,
   },
-  setMetrics: (newMetrics) =>
-    set((state) => ({
+  setMetrics: (newMetrics: Partial<PerformanceMetrics>) =>
+    set((state: DebugSlice) => ({
       metrics: {
         ...state.metrics,
         ...newMetrics,

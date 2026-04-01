@@ -8,16 +8,16 @@ export interface CandlesSlice {
   setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) => void;
 }
 
-export const createCandlesSlice: StateCreator<CandlesSlice> = (set) => ({
+export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice> = (set) => ({
   candles: {},
-  updateCandle: (candle) =>
-    set((state) => {
+  updateCandle: (candle: NormalizedCandle) =>
+    set((state: CandlesSlice) => {
       const key = `${candle.sym}-${candle.interval}`;
       const existing = state.candles[key] || [];
       const retention = candle.interval === '1m' ? 500 : 200;
 
       // If timestamp matches existing, update; else prepend
-      const lastIndex = existing.findIndex((c) => c.ts === candle.ts);
+      const lastIndex = existing.findIndex((c: NormalizedCandle) => c.ts === candle.ts);
       let next;
       if (lastIndex !== -1) {
         next = [...existing];
@@ -33,8 +33,8 @@ export const createCandlesSlice: StateCreator<CandlesSlice> = (set) => ({
         },
       };
     }),
-  setCandles: (symbol, interval, candles) =>
-    set((state) => ({
+  setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) =>
+    set((state: CandlesSlice) => ({
       candles: {
         ...state.candles,
         [`${symbol}-${interval}`]: candles,

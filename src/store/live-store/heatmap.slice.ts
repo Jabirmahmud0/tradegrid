@@ -6,7 +6,7 @@ export interface HeatmapSlice {
   updateHeatmap: (event: HeatmapEvent) => void;
 }
 
-export const createHeatmapSlice: StateCreator<HeatmapSlice> = (set) => ({
+export const createHeatmapSlice: StateCreator<HeatmapSlice, [], [], HeatmapSlice> = (set) => ({
   heatmap: null,
-  updateHeatmap: (event) => set({ heatmap: event }),
+  updateHeatmap: (event: HeatmapEvent) => set({ heatmap: event }),
 });

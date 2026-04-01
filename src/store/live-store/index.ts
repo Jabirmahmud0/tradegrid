@@ -8,16 +8,17 @@ import { createThemeSlice, ThemeSlice } from '../ui-store/theme.slice';
 import { createReplaySlice, ReplaySlice } from '../replay-store/replay.slice';
 import { createDebugSlice, DebugSlice } from './debug.slice';
 
-export type StoreState = TradesSlice &
-  CandlesSlice &
-  OrderBookSlice &
-  HeatmapSlice &
-  LayoutSlice &
-  ThemeSlice &
-  ReplaySlice &
-  DebugSlice;
+export interface RootState 
+  extends TradesSlice, 
+          CandlesSlice, 
+          OrderBookSlice, 
+          HeatmapSlice, 
+          LayoutSlice, 
+          ThemeSlice, 
+          ReplaySlice, 
+          DebugSlice {}
 
-export const useLiveStore = create<StoreState>()((...a) => ({
+export const useLiveStore = create<RootState>()((...a) => ({
   ...createTradesSlice(...a),
   ...createCandlesSlice(...a),
   ...createOrderBookSlice(...a),

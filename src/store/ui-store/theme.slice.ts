@@ -10,12 +10,12 @@ export interface ThemeSlice {
   setSystemReady: (ready: boolean) => void;
 }
 
-export const createThemeSlice: StateCreator<ThemeSlice> = (set) => ({
+export const createThemeSlice: StateCreator<ThemeSlice, [], [], ThemeSlice> = (set) => ({
   theme: 'dark',
   systemReady: false,
-  setTheme: (theme) => set({ theme }),
-  toggleTheme: () => set((state) => ({
+  setTheme: (theme: Theme) => set({ theme }),
+  toggleTheme: () => set((state: ThemeSlice) => ({
     theme: state.theme === 'dark' ? 'high-contrast' : 'dark'
   })),
-  setSystemReady: (ready) => set({ systemReady: ready }),
+  setSystemReady: (ready: boolean) => set({ systemReady: ready }),
 });

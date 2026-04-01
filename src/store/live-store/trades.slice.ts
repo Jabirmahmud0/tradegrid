@@ -7,10 +7,10 @@ export interface TradesSlice {
   clearTrades: () => void;
 }
 
-export const createTradesSlice: StateCreator<TradesSlice> = (set) => ({
+export const createTradesSlice: StateCreator<TradesSlice, [], [], TradesSlice> = (set) => ({
   trades: [],
-  addTrades: (newTrades) =>
-    set((state) => ({
+  addTrades: (newTrades: NormalizedTrade[]) =>
+    set((state: TradesSlice) => ({
       // Ring buffer logic: keep last 500
       trades: [...newTrades, ...state.trades].slice(0, 500),
     })),
