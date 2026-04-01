@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 import { useMarketStream } from '../../hooks/useMarketStream';
 import { useLiveStore } from '../../store/live-store';
+import { CandleChart } from '../charts/CandleChart';
 
 export const TradingDashboard: React.FC = () => {
   // Subscribe to default symbols
@@ -35,8 +36,8 @@ export const TradingDashboard: React.FC = () => {
         }
         className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8"
       >
-        <div className="h-full w-full bg-zinc-900/5 flex items-center justify-center text-zinc-800 font-mono italic">
-          [Main Chart Engine Slot]
+        <div className="h-full w-full bg-zinc-900/5">
+          <CandleChart candles={btcCandles} symbol="BTC-USD" />
         </div>
       </Card>
 
