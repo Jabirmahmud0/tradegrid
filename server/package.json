@@ -1,0 +1,23 @@
+{
+  "name": "tradegrid-mock-server",
+  "version": "1.0.0",
+  "description": "High-performance market data simulator",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx watch src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.0.0",
+    "cors": "^2.8.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
