@@ -7,6 +7,7 @@ import { CandleChart } from '../charts/CandleChart';
 import { TradeTape } from '../trades/TradeTape';
 import { OrderBook } from '../orderbook/OrderBook';
 import { MarketHeatmap } from '../heatmap/MarketHeatmap';
+import { DepthChart } from '../orderbook/DepthChart';
 
 export const TradingDashboard: React.FC = () => {
   // Subscribe to default symbols
@@ -62,27 +63,27 @@ export const TradingDashboard: React.FC = () => {
         <TradeTape symbol="BTC-USD" />
       </Card>
 
-      {/* Bottom Panels (Heatmap / History / Info) */}
+      {/* Bottom Panels (Heatmap / Depth / History / Info) */}
       <div className="col-span-12 lg:col-span-8 row-span-5 lg:row-span-4">
         <Tabs defaultValue="heatmap" className="h-full flex flex-col">
           <TabsList className="bg-zinc-900/50 border-b border-zinc-800 rounded-none h-10 px-2 gap-2 flex items-center justify-start">
             <TabsTrigger value="heatmap" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Liquidity Heatmap</TabsTrigger>
+            <TabsTrigger value="depth" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Depth Map</TabsTrigger>
             <TabsTrigger value="history" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Trade History</TabsTrigger>
             <TabsTrigger value="executions" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">My Executions</TabsTrigger>
-            <TabsTrigger value="funding" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Funding Rate</TabsTrigger>
           </TabsList>
           <div className="flex-1 bg-zinc-950 border-x border-b border-zinc-900 rounded-b-sm overflow-hidden">
             <TabsContent value="heatmap" className="h-full m-0 p-0 overflow-hidden">
                <MarketHeatmap />
+            </TabsContent>
+            <TabsContent value="depth" className="h-full m-0 p-0 overflow-hidden">
+               <DepthChart symbol="BTC-USD" />
             </TabsContent>
             <TabsContent value="history" className="h-full m-0 p-4 text-zinc-500 text-xs">
               Transaction logging...
             </TabsContent>
             <TabsContent value="executions" className="h-full m-0 p-4 text-zinc-500 text-xs">
               No recent executions.
-            </TabsContent>
-            <TabsContent value="funding" className="h-full m-0 p-4 text-zinc-500 text-xs">
-              Current Funding Rate: 0.0100%
             </TabsContent>
           </div>
         </Tabs>
