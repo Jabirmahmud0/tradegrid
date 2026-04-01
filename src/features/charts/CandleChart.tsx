@@ -1,13 +1,12 @@
-import React, { useRef, useLayoutEffect, useMemo } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import { NormalizedCandle } from '../../types';
 
 interface CandleChartProps {
   candles: NormalizedCandle[];
-  symbol: string;
   className?: string;
 }
 
-export const CandleChart: React.FC<CandleChartProps> = ({ candles, symbol, className }) => {
+export const CandleChart: React.FC<CandleChartProps> = ({ candles, className }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 

@@ -4,6 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Ta
 import { useMarketStream } from '../../hooks/useMarketStream';
 import { useLiveStore } from '../../store/live-store';
 import { CandleChart } from '../charts/CandleChart';
+import { TradeTape } from '../trades/TradeTape';
+import { OrderBook } from '../orderbook/OrderBook';
+import { MarketHeatmap } from '../heatmap/MarketHeatmap';
 
 export const TradingDashboard: React.FC = () => {
   // Subscribe to default symbols
@@ -11,7 +14,7 @@ export const TradingDashboard: React.FC = () => {
 
   // Get latest data from store
   const btcCandles = useLiveStore(state => state.candles['BTC-USD-1m'] || []);
-  const latestCandle = btcCandles[0]; // Most recent is at start (due to prepend)
+  const latestCandle = btcCandles[0]; 
   
   const btcPrice = latestCandle?.c.toLocaleString(undefined, { 
     minimumFractionDigits: 2, 
@@ -21,23 +24,23 @@ export const TradingDashboard: React.FC = () => {
   const priceColor = latestCandle?.isUp ? 'text-green-500' : 'text-red-500';
 
   return (
-    <div className="h-full w-full p-1 lg:p-2 grid grid-cols-12 grid-rows-12 gap-1 lg:gap-2 bg-zinc-950">
+    <div className="h-full w-full p-1 lg:p-2 grid grid-cols-12 grid-rows-12 gap-1 lg:gap-2 bg-zinc-950 text-zinc-100">
       {/* Main Chart Area */}
       <Card 
         variant="outline" 
         header={
           <div className="flex items-center gap-4">
-            <span className="text-zinc-100">BTC-USD <span className="text-zinc-500 font-normal">Perpetual</span></span>
+            <span className="text-zinc-100 font-bold text-sm lg:text-base">BTC-USD <span className="text-zinc-500 font-normal ml-1">Perpetual</span></span>
             <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
               <span className={`font-mono font-bold ${priceColor}`}>{btcPrice}</span>
-              <span className="text-zinc-600 font-normal">Index: {btcPrice}</span>
+              <span className="text-zinc-600 font-normal text-[10px]">Index: {btcPrice}</span>
             </div>
           </div>
         }
-        className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8"
+        className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8 overflow-hidden"
       >
         <div className="h-full w-full bg-zinc-900/5">
-          <CandleChart candles={btcCandles} symbol="BTC-USD" />
+          <CandleChart candles={btcCandles} />
         </div>
       </Card>
 
@@ -45,49 +48,41 @@ export const TradingDashboard: React.FC = () => {
       <Card 
         variant="outline" 
         header="Order Book"
-        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12"
+        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
       >
-        <div className="h-full w-full flex flex-col p-2 gap-4">
-          <div className="flex-1 bg-zinc-900/10 rounded-sm border border-dashed border-zinc-900 flex items-center justify-center text-[10px] text-zinc-700">
-            [Asks]
-          </div>
-          <div className="h-6 flex items-center justify-center border-y border-zinc-900 text-xs font-bold text-zinc-400">
-            97,432.50
-          </div>
-          <div className="flex-1 bg-zinc-900/10 rounded-sm border border-dashed border-zinc-900 flex items-center justify-center text-[10px] text-zinc-700">
-            [Bids]
-          </div>
-        </div>
+        <OrderBook symbol="BTC-USD" />
       </Card>
 
       {/* Recent Trades (Tape) */}
       <Card 
         variant="outline" 
         header="Recent Trades"
-        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12"
+        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
       >
-        <div className="h-full w-full bg-zinc-900/10 flex items-center justify-center text-[10px] text-zinc-700 font-mono uppercase tracking-tighter">
-          [Live Tape Slot]
-        </div>
+        <TradeTape symbol="BTC-USD" />
       </Card>
 
       {/* Bottom Panels (Heatmap / History / Info) */}
       <div className="col-span-12 lg:col-span-8 row-span-5 lg:row-span-4">
         <Tabs defaultValue="heatmap" className="h-full flex flex-col">
-          <TabsList>
-            <TabsTrigger value="heatmap">Liquidity Heatmap</TabsTrigger>
-            <TabsTrigger value="history">Trade History</TabsTrigger>
-            <TabsTrigger value="executions">My Executions</TabsTrigger>
-            <TabsTrigger value="funding">Funding Rate</TabsTrigger>
+          <TabsList className="bg-zinc-900/50 border-b border-zinc-800 rounded-none h-10 px-2 gap-2 flex items-center justify-start">
+            <TabsTrigger value="heatmap" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Liquidity Heatmap</TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Trade History</TabsTrigger>
+            <TabsTrigger value="executions" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">My Executions</TabsTrigger>
+            <TabsTrigger value="funding" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Funding Rate</TabsTrigger>
           </TabsList>
-          <div className="flex-1 bg-zinc-950 border border-t-0 border-zinc-900 rounded-b-sm overflow-hidden">
-            <TabsContent value="heatmap" className="h-full">
-              <div className="h-full flex items-center justify-center text-zinc-800 italic font-mono">
-                [Depth Heatmap Engine Slot]
-              </div>
+          <div className="flex-1 bg-zinc-950 border-x border-b border-zinc-900 rounded-b-sm overflow-hidden">
+            <TabsContent value="heatmap" className="h-full m-0 p-0 overflow-hidden">
+               <MarketHeatmap />
             </TabsContent>
-            <TabsContent value="history" className="h-full p-4 text-zinc-500">
+            <TabsContent value="history" className="h-full m-0 p-4 text-zinc-500 text-xs">
               Transaction logging...
+            </TabsContent>
+            <TabsContent value="executions" className="h-full m-0 p-4 text-zinc-500 text-xs">
+              No recent executions.
+            </TabsContent>
+            <TabsContent value="funding" className="h-full m-0 p-4 text-zinc-500 text-xs">
+              Current Funding Rate: 0.0100%
             </TabsContent>
           </div>
         </Tabs>
