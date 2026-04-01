@@ -133,29 +133,46 @@ function normalizeAndBuffer(raw: any) {
   switch (raw.e) {
     case 'trade': {
       const rawTrade = raw as RawTrade;
-      event = {
+      const px = parseFloat(rawTrade.p);
+      const qty = parseFloat(rawTrade.q);
+      
+      const normalized: NormalizedTrade = {
         t: 'trade',
         sym: rawTrade.s,
-        px: parseFloat(rawTrade.p),
-        qty: parseFloat(rawTrade.q),
+        px,
+        qty,
         side: rawTrade.m ? 's' : 'b',
         ts: rawTrade.E,
+        id: `${rawTrade.s}-${rawTrade.E}-${Math.random().toString(36).substring(2, 7)}`,
+        formattedTime: new Date(rawTrade.E).toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        })
       };
+      event = normalized;
       break;
     }
     case 'candle': {
       const rawCandle = raw as RawCandle;
-      event = {
+      const o = parseFloat(rawCandle.k.o);
+      const c = parseFloat(rawCandle.k.c);
+      
+      const normalized: NormalizedCandle = {
         t: 'candle',
         sym: rawCandle.s,
-        interval: '1m', // Default to 1m for this demo
-        o: parseFloat(rawCandle.k.o),
+        interval: '1m',
+        o,
         h: parseFloat(rawCandle.k.h),
         l: parseFloat(rawCandle.k.l),
-        c: parseFloat(rawCandle.k.c),
+        c,
         v: parseFloat(rawCandle.k.v),
         ts: rawCandle.E,
+        isUp: c >= o,
+        changePercent: ((c - o) / o) * 100
       };
+      event = normalized;
       break;
     }
     case 'book': {
