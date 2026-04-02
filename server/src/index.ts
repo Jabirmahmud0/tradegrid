@@ -1,32 +1,78 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { encode } from '@msgpack/msgpack';
 import http from 'http';
+import express from 'express';
+import cors from 'cors';
 import { MarketSimulator } from './engine/simulation.js';
 import { DataGenerator } from './engine/generators.js';
 import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, ScenarioState } from './engine/scenarios.js';
 import { HeatmapGenerator } from './engine/heatmap.js';
 
 const PORT = 4000;
-const server = http.createServer((req, res) => {
-  // Handle HTTP Replay API
-  if (req.url === '/v1/replay' && req.method === 'GET') {
-    res.writeHead(200, { 
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*' // Enable CORS for development
-    });
-    res.end(JSON.stringify(historicalBuffer));
-    return;
-  }
-  
-  res.writeHead(404);
-  res.end();
-});
+const app = express();
 
-const wss = new WebSocketServer({ server });
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 'LINK-USD', 'ADA-USD', 'DOT-USD', 'MATIC-USD', 'AVAX-USD'];
+const symbols = [
+    'BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 
+    'LINK-USD', 'ADA-USD', 'DOT-USD', 'MATIC-USD', 'AVAX-USD'
+];
+
+// In-memory data structures
+let historicalBuffer: any[] = [];
+const BUFFER_SIZE = 20000;
 const simulator = new MarketSimulator(symbols);
 const generator = new DataGenerator(simulator);
+
+// HTTP ENDPOINTS
+app.get('/status', (req, res) => {
+    res.json({
+        status: 'UP',
+        uptime: process.uptime(),
+        clients: clients.size,
+        bufferSize: historicalBuffer.length,
+        currentScenario: currentScenario.mode
+    });
+});
+
+app.get('/symbols', (req, res) => {
+    // Return enriched symbol metadata
+    const enriched = symbols.map(sym => ({
+        symbol: sym,
+        name: sym.split('-')[0] + ' Perpetual',
+        sector: getSector(sym),
+        baseAsset: sym.split('-')[0],
+        quoteAsset: 'USD'
+    }));
+    res.json(enriched);
+});
+
+app.get('/history/:symbol', (req, res) => {
+    const { symbol } = req.params;
+    const candles = historicalBuffer
+        .filter(event => event.t === 'candle' && event.sym === symbol)
+        .slice(-500); // Return last 500 candles
+    res.json(candles);
+});
+
+app.get('/v1/replay', (req, res) => {
+    res.json(historicalBuffer);
+});
+
+function getSector(sym: string): string {
+    const sectors: Record<string, string> = {
+        'BTC-USD': 'Core', 'ETH-USD': 'Core', 'SOL-USD': 'L1', 'ADA-USD': 'L1', 'DOT-USD': 'L1', 'AVAX-USD': 'L1',
+        'ARB-USD': 'L2', 'OP-USD': 'L2', 'MATIC-USD': 'L2',
+        'LINK-USD': 'DeFi', 'UNI-USD': 'DeFi'
+    };
+    return sectors[sym] || 'Misc';
+}
+
+// Websocket Logic
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
 // HEATMAP GENERATOR
 const heatmapGen = new HeatmapGenerator(symbols, (snapshot) => {
@@ -41,10 +87,6 @@ heatmapGen.start();
 
 let currentScenario: ScenarioState = { ...DEFAULT_SCENARIO };
 let ticker: NodeJS.Timeout | null = null;
-
-// Replay State
-let historicalBuffer: any[] = [];
-const BUFFER_SIZE = 10000;
 let isReplaying = false;
 let replayCursor = 0;
 let playbackSpeed = 1;
@@ -142,7 +184,7 @@ function startTicker() {
         for (let i = 0; i < playbackSpeed; i++) {
             if (replayCursor < historicalBuffer.length) {
                 const event = historicalBuffer[replayCursor];
-                broadcast(event.s || 'BTC-USD', event, true);
+                broadcast(event.sym || 'BTC-USD', event, true);
                 replayCursor++;
             } else {
                 isReplaying = false;
@@ -175,8 +217,6 @@ function restartTicker() {
   startTicker();
 }
 
-startTicker();
-
 function broadcast(symbol: string, event: any, isReplay = false) {
   if (!isReplay) {
       historicalBuffer.push(event);
@@ -197,6 +237,8 @@ function broadcast(symbol: string, event: any, isReplay = false) {
     }
   });
 }
+
+startTicker();
 
 server.listen(PORT, () => {
   console.log(`[Server] TradeGrid Mock Stream Backend running on http/ws://localhost:${PORT}`);

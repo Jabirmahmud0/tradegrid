@@ -4,6 +4,7 @@ import { cn } from '../../../utils';
 import { CandlestickCanvas } from './CandlestickCanvas';
 import { CandlestickOverlay } from './CandlestickOverlay';
 import { useCandlestickScales, Box } from './use-candlestick-scales';
+import { ChartAriaOverlay } from './ChartAriaOverlay';
 
 interface CandlestickChartProps {
   candles: NormalizedCandle[];
@@ -127,7 +128,14 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
         />
       </div>
 
-      {/* 6. Interaction Hints */}
+      {/* 6. Accessibility Overlay */}
+      <ChartAriaOverlay 
+          candles={visibleCandles} 
+          symbol="CURRENT" 
+          interval={selectedInterval} 
+      />
+
+      {/* 7. Interaction Hints */}
       <div className="absolute bottom-3 left-3 text-[9px] font-mono text-zinc-700 pointer-events-none uppercase">
           Wheel: Zoom • Drag: Pan • {visibleCount} Bars
       </div>

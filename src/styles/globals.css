@@ -1,6 +1,5 @@
-@import "tailwindcss";
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
 
 @layer base {
   :root {
@@ -64,18 +63,20 @@
   --font-sans: "Inter", ui-sans-serif, system-ui;
 
   /* Flash Animations for Trading Data */
-  @keyframes flash-green { 
-    0% { background-color: rgba(16, 185, 129, 0.2); } 
+  @keyframes flash-green {
+    0% { background-color: rgba(16, 185, 129, 0.2); }
     100% { background-color: transparent; }
   }
-  @keyframes flash-red { 
-    0% { background-color: rgba(239, 68, 68, 0.2); } 
-    100% { background-color: transparent; } 
+  @keyframes flash-red {
+    0% { background-color: rgba(239, 68, 68, 0.2); }
+    100% { background-color: transparent; }
   }
-  .animate-flash-green { 
-    animation: flash-green 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
-  }
-  .animate-flash-red { 
-    animation: flash-red 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
-  }
+}
+
+/* Flash Animation Utility Classes */
+.animate-flash-green {
+  animation: flash-green 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.animate-flash-red {
+  animation: flash-red 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }

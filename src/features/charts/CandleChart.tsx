@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useLayoutEffect, useState, useMemo } from 'react';
 import { NormalizedCandle } from '../../types';
 import { cn } from '../../utils';
 

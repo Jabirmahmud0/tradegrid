@@ -32,10 +32,10 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
         onMessage: (data) => {
           handleData(data);
         },
-        onError: (err) => {
-          ctx.postMessage({ 
-            type: 'ERROR', 
-            payload: { message: 'WebSocket encountered an error' } 
+        onError: (_err) => {
+          ctx.postMessage({
+            type: 'ERROR',
+            payload: { message: 'WebSocket encountered an error' }
           } as WorkerMessage);
         }
       });

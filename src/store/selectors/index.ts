@@ -18,9 +18,8 @@ export const selectOrderBook = (symbol: string) =>
 
 export const selectMetrics = (s: RootState) => s.metrics;
 export const selectReplayState = (s: RootState) => ({
-  isReplaying: s.isReplaying,
-  isPaused: s.isPaused,
+  mode: s.mode,
+  status: s.status,
   speed: s.speed,
-  currentTime: s.currentTime,
-  progress: s.progress,
+  cursor: s.cursor,
 });

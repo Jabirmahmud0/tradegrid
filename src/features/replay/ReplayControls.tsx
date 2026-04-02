@@ -2,7 +2,7 @@ import React from 'react';
 import { useLiveStore } from '../../store/live-store';
 import { marketClient } from '../../services/market-client';
 import { cn } from '../../utils';
-import { Play, Pause, FastForward, Rewind, Activity } from 'lucide-react';
+import { Play, Pause, Activity, Rewind } from 'lucide-react';
 
 export const ReplayControls: React.FC = () => {
   const { mode, status, speed, setReplayMode, setReplayStatus, setReplaySpeed } = useLiveStore();
