@@ -85,6 +85,13 @@ export function normalizeEvent(raw: any): StreamEvent | null {
         ts: rawBook.E,
       } as BookDeltaEvent;
     }
+    case 'heatmap': {
+      return {
+        t: 'heatmap',
+        cells: raw.cells,
+        ts: raw.ts
+      } as any;
+    }
     default:
       return null;
   }
