@@ -33,11 +33,11 @@ export const DebugPanel: React.FC<{ className?: string }> = ({ className }) => {
         </span>
       </div>
 
-      {/* Latency Simulation */}
+      {/* Latency (RTT) */}
       <div className="flex items-center gap-1.5 pr-1">
         <Zap size={11} className="text-zinc-500" />
         <span className="text-[10px] font-mono font-bold text-zinc-400">
-          12 <span className="text-zinc-600 font-normal opacity-50 uppercase text-[8px]">ms</span>
+          {metrics.dispatchLatency} <span className="text-zinc-600 font-normal opacity-50 uppercase text-[8px]">ms</span>
         </span>
       </div>
     </div>

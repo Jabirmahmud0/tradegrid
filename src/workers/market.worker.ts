@@ -1,38 +1,6 @@
 import { decode } from '@msgpack/msgpack';
-
-// We define raw types matching the mock server's output
-interface RawTrade {
-  e: 'trade';
-  E: number;
-  s: string;
-  p: string;
-  q: string;
-  m: boolean;
-}
-
-interface RawCandle {
-  e: 'candle';
-  E: number;
-  s: string;
-  k: {
-    o: string;
-    h: string;
-    l: string;
-    c: string;
-    v: string;
-    x: boolean;
-  };
-}
-
-interface RawOrderBook {
-  e: 'book';
-  E: number;
-  s: string;
-  b: [string, string][];
-  a: [string, string][];
-}
-
-import { StreamEvent, NormalizedTrade, NormalizedCandle } from '../types/stream.types.js';
+import { normalizeEvent } from './normalization';
+import { StreamEvent } from '../types/stream.types';
 
 let socket: WebSocket | null = null;
 let reconnectAttempts = 0;
@@ -59,6 +27,9 @@ self.onmessage = (event: MessageEvent) => {
     case 'DISCONNECT':
       disconnect();
       break;
+    case 'CONTROL_COMMAND':
+      send(payload);
+      break;
   }
 };
 
@@ -80,7 +51,10 @@ function connect(url: string) {
     if (event.data instanceof ArrayBuffer) {
         try {
             const rawData = decode(event.data) as any;
-            normalizeAndBuffer(rawData);
+            const normalized = normalizeEvent(rawData);
+            if (normalized) {
+                eventBuffer.push(normalized);
+            }
         } catch (err) {
             console.error('[Worker] MessagePack decode failed:', err);
         }
@@ -121,75 +95,6 @@ function disconnect() {
 function send(data: any) {
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(data));
-  }
-}
-
-/**
- * Normalization & Coalescing Logic
- */
-function normalizeAndBuffer(raw: any) {
-  let event: StreamEvent | null = null;
-
-  switch (raw.e) {
-    case 'trade': {
-      const rawTrade = raw as RawTrade;
-      const px = parseFloat(rawTrade.p);
-      const qty = parseFloat(rawTrade.q);
-      
-      const normalized: NormalizedTrade = {
-        t: 'trade',
-        sym: rawTrade.s,
-        px,
-        qty,
-        side: rawTrade.m ? 's' : 'b',
-        ts: rawTrade.E,
-        id: `${rawTrade.s}-${rawTrade.E}-${Math.random().toString(36).substring(2, 7)}`,
-        formattedTime: new Date(rawTrade.E).toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-        })
-      };
-      event = normalized;
-      break;
-    }
-    case 'candle': {
-      const rawCandle = raw as RawCandle;
-      const o = parseFloat(rawCandle.k.o);
-      const c = parseFloat(rawCandle.k.c);
-      
-      const normalized: NormalizedCandle = {
-        t: 'candle',
-        sym: rawCandle.s,
-        interval: '1m',
-        o,
-        h: parseFloat(rawCandle.k.h),
-        l: parseFloat(rawCandle.k.l),
-        c,
-        v: parseFloat(rawCandle.k.v),
-        ts: rawCandle.E,
-        isUp: c >= o,
-        changePercent: ((c - o) / o) * 100
-      };
-      event = normalized;
-      break;
-    }
-    case 'book': {
-      const rawBook = raw as RawOrderBook;
-      event = {
-        t: 'book',
-        sym: rawBook.s,
-        bids: rawBook.b.map(([p, s]) => [parseFloat(p), parseFloat(s)]),
-        asks: rawBook.a.map(([p, s]) => [parseFloat(p), parseFloat(s)]),
-        ts: rawBook.E,
-      };
-      break;
-    }
-  }
-
-  if (event) {
-    eventBuffer.push(event);
   }
 }
 

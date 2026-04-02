@@ -15,10 +15,15 @@ class MarketClient {
   private lastFrameTime = Date.now();
   private fps = 0;
 
+  // Latency tracking (RTT)
+  private pingInterval: any = null;
+  private lastPingSent = 0;
+
   constructor() {
     if (typeof window !== 'undefined') {
       this.initWorker();
       this.startFPSMonitor();
+      this.startLatencyMonitor();
     }
   }
 
@@ -30,9 +35,21 @@ class MarketClient {
     this.worker.onmessage = (event) => {
       const { type, payload } = event.data;
       switch (type) {
-        case 'CONNECTED': this.isConnected = true; break;
-        case 'DISCONNECTED': this.isConnected = false; break;
-        case 'BATCH_DATA': this.handleBatchData(payload as StreamEvent[]); break;
+        case 'CONNECTED': 
+            this.isConnected = true; 
+            break;
+        case 'DISCONNECTED': 
+            this.isConnected = false; 
+            break;
+        case 'BATCH_DATA': 
+            this.handleBatchData(payload as StreamEvent[]); 
+            break;
+        case 'CONTROL':
+            if (payload.type === 'pong') {
+                const rtt = Date.now() - this.lastPingSent;
+                useLiveStore.getState().setMetrics({ dispatchLatency: rtt });
+            }
+            break;
       }
     };
   }
@@ -50,6 +67,16 @@ class MarketClient {
         requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+  }
+
+  private startLatencyMonitor() {
+    if (this.pingInterval) clearInterval(this.pingInterval);
+    this.pingInterval = setInterval(() => {
+        if (this.isConnected) {
+            this.lastPingSent = Date.now();
+            this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'ping' } });
+        }
+    }, 5000); // Ping every 5s
   }
 
   public connect(url: string = 'ws://localhost:4000') {
@@ -74,6 +101,10 @@ class MarketClient {
 
   public stopReplay() {
     this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-stop' } });
+  }
+
+  public seekReplay(index: number) {
+    this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-seek', index } });
   }
 
   private handleBatchData(events: StreamEvent[]) {
@@ -103,6 +134,7 @@ class MarketClient {
     if (trades.length > 0) store.addTrades(trades);
     Object.values(candles).forEach(c => store.setCandle(c));
     
+    // Process book deltas
     const latestBooks: Record<string, BookDeltaEvent> = {};
     books.forEach(b => latestBooks[b.sym] = b);
     Object.values(latestBooks).forEach(b => store.applyOrderBookDelta(b));
