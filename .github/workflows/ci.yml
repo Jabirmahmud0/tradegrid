@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format Check
+        run: npx prettier --check .
+
+      - name: Unit & Integration Tests
+        run: npm run test -- --run
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: End-to-End Tests
+        run: npx playwright test
+        
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Production Build
+        run: npm run build
+
+      - name: Bundle Size Check
+        run: |
+          SIZE=$(du -sk dist/assets/*.js | awk '{sum+=$1} END {print sum}')
+          echo "Total JS Bundle size: ${SIZE}kb"
+          if [ $SIZE -gt 800 ]; then 
+            echo "⚠️ WARNING: JS Bundle exceeds 800kb (${SIZE}kb)"
+            exit 1
+          fi
