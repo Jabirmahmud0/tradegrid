@@ -76,7 +76,7 @@ class MarketClient {
     }, 5000); // Ping every 5s
   }
 
-  public connect(url: string = 'ws://localhost:4000') {
+  public connect(url: string = import.meta.env.VITE_WS_URL || 'ws://localhost:4000') {
     this.worker?.postMessage({ type: 'CONNECT', payload: { url } });
   }
 
