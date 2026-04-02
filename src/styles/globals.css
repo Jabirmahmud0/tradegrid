@@ -62,5 +62,20 @@
   --color-border-strong: var(--color-border-strong);
 
   --font-sans: "Inter", ui-sans-serif, system-ui;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Flash Animations for Trading Data */
+  @keyframes flash-green { 
+    0% { background-color: rgba(16, 185, 129, 0.2); } 
+    100% { background-color: transparent; }
+  }
+  @keyframes flash-red { 
+    0% { background-color: rgba(239, 68, 68, 0.2); } 
+    100% { background-color: transparent; } 
+  }
+  .animate-flash-green { 
+    animation: flash-green 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+  }
+  .animate-flash-red { 
+    animation: flash-red 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+  }
 }

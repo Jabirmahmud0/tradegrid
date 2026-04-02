@@ -2,9 +2,11 @@ export interface HeatmapCell {
   sym: string;
   delta: number;
   vol: number;
+  sector: string;
 }
 
 export interface HeatmapSnapshot {
+  t: 'heatmap';
   cells: HeatmapCell[];
   ts: number;
 }
@@ -34,17 +36,20 @@ export class HeatmapGenerator {
   }
 
   private generateSnapshot(): HeatmapSnapshot {
-    const cells: HeatmapCell[] = this.symbols.map(sym => {
-        // Generate pseudo-random delta between -5 and +5
-        const delta = (Math.random() * 10) - 5;
-        // Volume between 100k and 1M
-        const vol = 100000 + Math.random() * 900000;
-        
-        return { sym, delta, vol };
-    });
+    const sectors: Record<string, string> = {
+      'BTC-USD': 'Core', 'ETH-USD': 'Core', 'SOL-USD': 'L1', 'ADA-USD': 'L1', 'DOT-USD': 'L1', 'AVAX-USD': 'L1',
+      'ARB-USD': 'L2', 'OP-USD': 'L2', 'MATIC-USD': 'L2',
+      'LINK-USD': 'DeFi', 'UNI-USD': 'DeFi', 'AAVE-USD': 'DeFi'
+    };
 
     return {
-      cells,
+      t: 'heatmap',
+      cells: this.symbols.map(sym => ({
+        sym,
+        delta: (Math.random() * 2) - 1, // Sentiment
+        vol: Math.random() * 1000,     // Volume for treemap sizing
+        sector: sectors[sym] || 'Misc'
+      })),
       ts: Date.now()
     };
   }

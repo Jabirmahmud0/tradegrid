@@ -3,13 +3,14 @@ import { Card } from '../../components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 import { useMarketStream } from '../../hooks/useMarketStream';
 import { useLiveStore } from '../../store/live-store';
-import { CandleChart } from '../charts/CandleChart';
+import { CandlestickChart } from '../charts/candlestick/CandlestickChart';
 import { TradeTape } from '../trades/TradeTape';
 import { OrderBook } from '../orderbook/OrderBook';
 import { MarketHeatmap } from '../heatmap/MarketHeatmap';
 import { DepthChart } from '../orderbook/DepthChart';
 import { SymbolSelector } from './SymbolSelector';
 import { ReplayControls } from '../replay/ReplayControls';
+import { ReplayPanel } from '../replay/ReplayPanel';
 import { DebugPanel } from '../debug/DebugPanel';
 import { marketClient } from '../../services/market-client';
 
@@ -85,7 +86,7 @@ export const TradingDashboard: React.FC = () => {
         className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8 overflow-hidden"
       >
         <div className="h-full w-full bg-zinc-900/5">
-          <CandleChart candles={candles} />
+          <CandlestickChart candles={candles} />
         </div>
       </Card>
 
@@ -137,6 +138,8 @@ export const TradingDashboard: React.FC = () => {
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass px-6 py-2 rounded-full !bg-zinc-950/80 !backdrop-blur-xl border-zinc-500/30">
         <ReplayControls />
       </div>
+      {/* Overlay UI */}
+      <ReplayPanel />
     </div>
   );
 };

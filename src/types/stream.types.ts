@@ -36,6 +36,7 @@ export interface HeatmapEvent {
     sym: string;
     delta: number;
     vol: number;
+    sector: string;
   }[];
   ts: number;
 }
