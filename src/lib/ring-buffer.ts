@@ -31,6 +31,19 @@ export class RingBuffer<T> {
   }
 
   /**
+   * Replaces the most recently added item.
+   * Useful for in-place updates (e.g. updating the current active candle).
+   */
+  replaceLast(item: T): void {
+    if (this.count === 0) {
+      this.push(item);
+      return;
+    }
+    const idx = (this.head - 1 + this.capacity) % this.capacity;
+    this.buffer[idx] = item;
+  }
+
+  /**
    * Returns all items in the buffer in chronological order (oldest to newest).
    */
   toArray(): T[] {
