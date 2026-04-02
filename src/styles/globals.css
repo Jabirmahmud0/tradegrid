@@ -13,7 +13,7 @@
   }
 
   body {
-    @apply m-0 min-h-screen bg-bg-base text-text-primary overflow-hidden;
+    @apply m-0 min-h-screen bg-bg-base text-text-primary;
   }
 
   /* Custom Scrollbar for Institutional Feel */

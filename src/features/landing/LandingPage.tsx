@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, Zap, Cpu, History, ChevronRight } from 'lucide-react';
-import { cn } from '../../utils';
 
 export const LandingPage: React.FC = () => {
     return (
@@ -19,7 +18,7 @@ export const LandingPage: React.FC = () => {
             </nav>
 
             {/* Hero Section */}
-            <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto overflow-hidden">
+            <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
                 <div className="grid lg:grid-cols-2 gap-20 items-center">
                     {/* Left: Text */}
                     <div className="relative z-10">
