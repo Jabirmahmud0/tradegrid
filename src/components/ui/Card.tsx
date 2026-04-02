@@ -18,22 +18,22 @@ export const Card: React.FC<CardProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col bg-zinc-950 overflow-hidden',
-        variant === 'outline' && 'border border-zinc-900 rounded-sm shadow-sm',
+        'flex flex-col bg-[var(--color-bg-base)] overflow-hidden',
+        variant === 'outline' && 'border border-[var(--color-border)] rounded-sm shadow-sm',
         variant === 'ghost' && 'border-none',
-        variant === 'glass' && 'bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 rounded-md',
+        variant === 'glass' && 'bg-[var(--color-bg-base)]/80 backdrop-blur-md border border-[var(--color-border-strong)]/30 rounded-md',
         className
       )}
       {...props}
     >
       {header && (
-        <div className="px-3 py-2 border-b border-zinc-900 bg-zinc-900/10 flex items-center justify-between font-mono text-[10px] uppercase font-bold tracking-tight text-zinc-400">
+        <div className="px-3 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]/30 flex items-center justify-between font-mono text-[10px] uppercase font-bold tracking-tight text-[var(--color-text-secondary)]">
           {header}
         </div>
       )}
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div className="flex-1 overflow-hidden relative flex flex-col min-h-0">{children}</div>
       {footer && (
-        <div className="px-3 py-1.5 border-t border-zinc-900 bg-zinc-900/5 text-[10px] text-zinc-500">
+        <div className="px-3 py-1.5 border-t border-[var(--color-border)] bg-[var(--color-bg-surface)]/20 text-[10px] text-[var(--color-text-tertiary)]">
           {footer}
         </div>
       )}

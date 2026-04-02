@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Activity, Cpu, Play, BarChart2, Shield } from 'lucide-react';
+import { ArrowRight, Activity, Cpu, Play, BarChart2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { cn } from '../../utils';
 
 export const LandingPage: React.FC = () => {
     const navigate = useNavigate();

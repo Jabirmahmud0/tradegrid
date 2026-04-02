@@ -17,21 +17,27 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   // 1. Chart Configuration & Scale State
-  const [visibleCount, setVisibleCount] = useState(100);
+  const [visibleCount, setVisibleCount] = useState(120);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [crosshair, setCrosshair] = useState<{ x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [selectedInterval, setSelectedInterval] = useState('1m');
 
-  const MARGIN = { top: 30, right: 70, bottom: 20, left: 10 };
+  const MARGIN = { top: 30, right: 70, bottom: 30, left: 0 };
 
   // 2. Responsive observer
   useEffect(() => {
     if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setDimensions({ width, height });
-    });
+    
+    const updateDimensions = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateDimensions();
+    const observer = new ResizeObserver(updateDimensions);
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
@@ -39,7 +45,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
   // 3. Slice and Scale data
   const visibleCandles = useMemo(() => {
     if (candles.length === 0) return [];
-    // Always show the latest data by default (offset 0)
     const end = Math.max(0, candles.length - scrollOffset);
     const start = Math.max(0, end - visibleCount);
     return candles.slice(start, end);
@@ -61,7 +66,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
     const zoomSpeed = 0.1;
     const delta = e.deltaY > 0 ? 1 : -1;
     const adjust = Math.round(visibleCount * zoomSpeed);
-    const newCount = Math.min(500, Math.max(20, visibleCount + delta * adjust));
+    const newCount = Math.min(Math.min(500, candles.length), Math.max(20, visibleCount + delta * adjust));
     setVisibleCount(newCount);
   };
 
@@ -74,10 +79,15 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    setCrosshair({ x: y > MARGIN.top + scales.chartHeight + 5 ? -100 : x, y });
+
+    setCrosshair({ 
+        x: x > MARGIN.left + scales.chartWidth + 5 ? -100 : x, 
+        y: y > MARGIN.top + scales.chartHeight + 5 ? -100 : y 
+    });
 
     if (isPanning) {
-        const candlesMove = (e.movementX / (scales.candleWidth + 2));
+        const panSpeed = 0.8;
+        const candlesMove = (e.movementX / (scales.candleWidth + 2)) * panSpeed;
         const newOffset = Math.max(0, Math.min(candles.length - visibleCount, scrollOffset + candlesMove));
         setScrollOffset(newOffset);
     }
@@ -90,9 +100,9 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
   };
 
   return (
-    <div className={cn("relative w-full h-full select-none bg-[#09090b] overflow-hidden", className)}>
+    <div className={cn("relative w-full h-full select-none bg-[#0b0e11] overflow-hidden", className)}>
       {/* 5. Toolbars / Overlays */}
-      <div className="absolute top-3 left-3 flex gap-1 z-20">
+      <div className="absolute top-2 right-20 flex gap-1 z-20">
         {['1m', '5m', '15m', '1h', '1D'].map((interval) => (
             <button 
                 key={interval}
@@ -107,33 +117,36 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
         ))}
       </div>
 
-      {candles.length === 0 ? (
-        <div className="absolute inset-0 flex items-center justify-center p-12">
-            <EmptyState message="No market data" />
-        </div>
-      ) : (
-        <div 
-          ref={containerRef}
-          className="absolute inset-0 cursor-crosshair"
-          onWheel={handleWheel}
-          onMouseMove={handleMouseMove}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-        >
-          <CandlestickCanvas 
-              candles={visibleCandles} 
-              scales={scales} 
-              box={box}
-          />
-          <CandlestickOverlay 
-              scales={scales} 
-              box={box} 
-              crosshair={crosshair}
-              latestPrice={latestPrice}
-          />
-        </div>
-      )}
+      <div 
+        ref={containerRef}
+        className="absolute inset-0 cursor-crosshair"
+        onWheel={handleWheel}
+        onMouseMove={handleMouseMove}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        {candles.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center p-12">
+              <EmptyState message="Syncing market data..." />
+          </div>
+        ) : (
+          <>
+            <CandlestickCanvas 
+                candles={visibleCandles} 
+                scales={scales} 
+                box={box}
+            />
+            <CandlestickOverlay 
+                scales={scales} 
+                box={box} 
+                crosshair={crosshair}
+                latestPrice={latestPrice}
+                candles={visibleCandles}
+            />
+          </>
+        )}
+      </div>
 
       {/* 6. Accessibility Overlay */}
       <ChartAriaOverlay 
@@ -143,7 +156,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
       />
 
       {/* 7. Interaction Hints */}
-      <div className="absolute bottom-3 left-3 text-[9px] font-mono text-zinc-700 pointer-events-none uppercase">
+      <div className="absolute bottom-1 right-20 text-[9px] font-mono text-zinc-600 pointer-events-none uppercase">
           Wheel: Zoom • Drag: Pan • {visibleCount} Bars
       </div>
     </div>

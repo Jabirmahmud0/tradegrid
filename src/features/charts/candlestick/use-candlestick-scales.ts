@@ -19,17 +19,35 @@ export interface CandlestickScales {
   getY: (price: number) => number;
   getVolumeY: (volume: number) => number;
   getPrice: (y: number) => number;
+  timeLabels: { x: number; label: string }[];
 }
 
 export const useCandlestickScales = (
   candles: NormalizedCandle[],
   box: Box,
   gap: number = 2,
-  volumeRatio: number = 0.2
+  volumeRatio: number = 0.15
 ): CandlestickScales => {
   return useMemo(() => {
     const chartWidth = box.width - box.margin.left - box.margin.right;
     const chartHeight = box.height - box.margin.top - box.margin.bottom;
+
+    if (candles.length === 0 || chartWidth <= 0 || chartHeight <= 0) {
+      return {
+        minPrice: 0,
+        maxPrice: 100,
+        priceRange: 100,
+        maxVolume: 0,
+        candleWidth: 0,
+        chartWidth: Math.max(0, chartWidth),
+        chartHeight: Math.max(0, chartHeight),
+        getX: () => 0,
+        getY: () => 0,
+        getVolumeY: () => 0,
+        getPrice: () => 0,
+        timeLabels: [],
+      };
+    }
 
     let minPrice = Infinity;
     let maxPrice = -Infinity;
@@ -41,23 +59,7 @@ export const useCandlestickScales = (
       if (c.v > maxVolume) maxVolume = c.v;
     });
 
-    if (candles.length === 0) {
-      return {
-        minPrice: 0,
-        maxPrice: 100,
-        priceRange: 100,
-        maxVolume: 0,
-        candleWidth: 0,
-        chartWidth,
-        chartHeight,
-        getX: () => 0,
-        getY: () => 0,
-        getVolumeY: () => 0,
-        getPrice: () => 0,
-      };
-    }
-
-    const pricePadding = (maxPrice - minPrice) * 0.1 || 1;
+    const pricePadding = (maxPrice - minPrice) * 0.12 || 1;
     maxPrice += pricePadding;
     minPrice -= pricePadding;
     const priceRange = maxPrice - minPrice;
@@ -75,6 +77,17 @@ export const useCandlestickScales = (
         return minPrice + (relativeY / chartHeight) * priceRange;
     };
 
+    // Calculate time labels (6-8 labels)
+    const timeLabels: { x: number; label: string }[] = [];
+    const step = Math.max(1, Math.floor(candles.length / 6));
+    for (let i = 0; i < candles.length; i += step) {
+        const c = candles[i];
+        if (!c) continue;
+        const date = new Date(c.ts || Date.now());
+        const label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeLabels.push({ x: getX(i) + candleWidth / 2, label });
+    }
+
     return {
       minPrice,
       maxPrice,
@@ -87,6 +100,7 @@ export const useCandlestickScales = (
       getY,
       getVolumeY,
       getPrice,
+      timeLabels,
     };
   }, [candles, box.width, box.height, box.margin.top, box.margin.bottom, box.margin.left, box.margin.right, gap, volumeRatio]);
 };

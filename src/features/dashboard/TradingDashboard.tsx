@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Card } from '../../components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 import { useMarketStream } from '../../hooks/useMarketStream';
+import { useMarketData } from '../../hooks/useMarketData';
 import { useLiveStore } from '../../store/live-store';
 import { CandlestickChart } from '../charts/candlestick/CandlestickChart';
 import { TradeTape } from '../trades/TradeTape';
@@ -13,23 +14,24 @@ import { ReplayControls } from '../replay/ReplayControls';
 import { ReplayPanel } from '../replay/ReplayPanel';
 import { DebugPanel } from '../debug/DebugPanel';
 import { marketClient } from '../../services/market-client';
+import { cn } from '../../utils';
 
-// Stabilize empty array to prevent infinite re-renders in useSyncExternalStore
 const EMPTY_CANDLES: any[] = [];
 
 export const TradingDashboard: React.FC = () => {
   const [activeSymbol, setActiveSymbol] = React.useState('BTC-USD');
   const [activeTab, setActiveTab] = React.useState('heatmap');
-  
-  const { mode, status, setReplayStatus, speed } = useLiveStore();
 
-  // Keyboard Shortcuts Integration
+  const { mode, status, setReplayStatus, speed } = useLiveStore();
+  
+  useMarketData();
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       switch (e.key.toLowerCase()) {
-        case ' ': // Space
+        case ' ':
           e.preventDefault();
           if (mode === 'REPLAY') {
             const nextStatus = status === 'PLAYING' ? 'PAUSED' : 'PLAYING';
@@ -49,10 +51,8 @@ export const TradingDashboard: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mode, status, speed, setReplayStatus]);
   
-  // Memoize symbols array or pass as string to maintain hook stability
   useMarketStream(activeSymbol);
 
-  // Selector stability: fallback to EMPTY_CANDLES reference instead of new [] literal
   const candles = useLiveStore(state => state.candles[`${activeSymbol}-1m`] || EMPTY_CANDLES);
   const latestCandle = candles[candles.length - 1]; 
   
@@ -61,84 +61,100 @@ export const TradingDashboard: React.FC = () => {
     maximumFractionDigits: 2 
   }) || '---';
 
-  const priceColor = latestCandle?.isUp ? 'text-green-500' : 'text-red-500';
+  const priceColor = latestCandle?.isUp ? 'text-[var(--color-profit)]' : 'text-[var(--color-loss)]';
 
   return (
-    <div className="h-full w-full p-1 lg:p-2 grid grid-cols-12 grid-rows-12 gap-1 lg:gap-2 bg-zinc-950 text-zinc-100">
-      {/* Main Chart Area */}
-      <Card 
-        variant="outline" 
-        header={
-          <div className="flex items-center justify-between w-full pr-4">
-            <div className="flex items-center gap-4">
-              <span className="text-zinc-100 font-bold text-sm lg:text-base">{activeSymbol} <span className="text-zinc-500 font-normal ml-1">Perpetual</span></span>
-              <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
-                <span className={`font-mono font-bold ${priceColor}`}>{price}</span>
-                <span className="text-zinc-600 font-normal text-[0.65rem]">Mark: {price}</span>
+    <div className="h-screen w-screen p-1 flex flex-col bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
+      {/* Top Header / Symbol Ticker */}
+      <header className="h-12 border-b border-[var(--color-border)] flex items-center px-4 gap-6 shrink-0 bg-[var(--color-bg-base)]">
+          <div className="flex items-center gap-2">
+              <span className="font-bold text-lg">{activeSymbol}</span>
+              <span className="text-[var(--color-text-tertiary)] text-xs uppercase">Perpetual</span>
+          </div>
+
+          <div className="flex gap-6 items-center border-l border-[var(--color-border-subtle)] pl-6">
+              <div className="flex flex-col">
+                  <span className={cn("text-lg font-bold font-mono tracking-tight", priceColor)}>{price}</span>
+                  <span className="text-[10px] text-[var(--color-text-tertiary)] font-mono">Mark Price: {price}</span>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)] uppercase font-bold">24h Change</span>
+                  <span className={cn("text-[11px] font-mono", priceColor)}>+1.24%</span>
+              </div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)] uppercase font-bold">24h High</span>
+                  <span className="text-[11px] font-mono">98,012.44</span>
+              </div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)] uppercase font-bold">24h Low</span>
+                  <span className="text-[11px] font-mono">96,442.21</span>
+              </div>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3">
               <DebugPanel />
               <SymbolSelector activeSymbol={activeSymbol} onSelect={setActiveSymbol} />
-            </div>
           </div>
-        }
-        className="col-span-12 lg:col-span-8 row-span-7 lg:row-span-8 overflow-hidden"
-      >
-        <div className="h-full w-full bg-zinc-900/5">
-          <CandlestickChart candles={candles} />
-        </div>
-      </Card>
+      </header>
 
-      {/* Order Book */}
-      <Card 
-        variant="outline" 
-        header="Order Book"
-        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
-      >
-        <OrderBook symbol={activeSymbol} />
-      </Card>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden grid grid-cols-12 gap-1.5 p-1.5">
+          {/* Main Chart Area */}
+          <div className="col-span-12 lg:col-span-8 flex flex-col gap-1.5 overflow-hidden">
+              <Card variant="outline" className="flex-1 shadow-none border-[var(--color-border)]">
+                 <CandlestickChart candles={candles} />
+              </Card>
 
-      {/* Recent Trades (Tape) */}
-      <Card 
-        variant="outline" 
-        header="Recent Trades"
-        className="col-span-12 lg:col-span-2 row-span-6 lg:row-span-12 overflow-hidden"
-      >
-        <TradeTape symbol={activeSymbol} />
-      </Card>
-
-      {/* Bottom Panels (Heatmap / Depth / History / Info) */}
-      <div className="col-span-12 lg:col-span-8 row-span-5 lg:row-span-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="bg-zinc-900/50 border-b border-zinc-800 rounded-none h-10 px-2 gap-2 flex items-center justify-start">
-            <TabsTrigger value="heatmap" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Liquidity Heatmap [H]</TabsTrigger>
-            <TabsTrigger value="depth" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Depth Map [D]</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">Trade History [I]</TabsTrigger>
-            <TabsTrigger value="executions" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-[10px] uppercase tracking-wider font-bold h-7">My Executions [E]</TabsTrigger>
-          </TabsList>
-          <div className="flex-1 bg-zinc-950 border-x border-b border-zinc-900 rounded-b-sm overflow-hidden">
-            <TabsContent value="heatmap" className="h-full m-0 p-0 overflow-hidden">
-               <MarketHeatmap />
-            </TabsContent>
-            <TabsContent value="depth" className="h-full m-0 p-0 overflow-hidden">
-               <DepthChart symbol={activeSymbol} />
-            </TabsContent>
-            <TabsContent value="history" className="h-full m-0 p-4 text-zinc-500 text-xs">
-              Transaction logging...
-            </TabsContent>
-            <TabsContent value="executions" className="h-full m-0 p-4 text-zinc-500 text-xs">
-              No recent executions.
-            </TabsContent>
+              {/* Bottom Panels (Heatmap / Depth / History) */}
+              <div className="h-1/3 min-h-[220px]">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                  <TabsList className="bg-[var(--color-bg-base)] border-b border-[var(--color-border)] rounded-none h-9 px-2 gap-2 flex items-center justify-start shrink-0">
+                    <TabsTrigger value="heatmap" className="data-[state=active]:bg-[var(--color-bg-surface)] text-[9px] uppercase tracking-wider font-bold h-7 px-3">Liquidity Heatmap [H]</TabsTrigger>
+                    <TabsTrigger value="depth" className="data-[state=active]:bg-[var(--color-bg-surface)] text-[9px] uppercase tracking-wider font-bold h-7 px-3">Depth Map [D]</TabsTrigger>
+                    <TabsTrigger value="history" className="data-[state=active]:bg-[var(--color-bg-surface)] text-[9px] uppercase tracking-wider font-bold h-7 px-3">Trade History [I]</TabsTrigger>
+                    <TabsTrigger value="executions" className="data-[state=active]:bg-[var(--color-bg-surface)] text-[9px] uppercase tracking-wider font-bold h-7 px-3">Executions [E]</TabsTrigger>
+                  </TabsList>
+                  <div className="flex-1 bg-[var(--color-bg-base)] border-x border-b border-[var(--color-border)] overflow-hidden">
+                    <TabsContent value="heatmap" className="h-full m-0 p-0 overflow-hidden">
+                       <MarketHeatmap />
+                    </TabsContent>
+                    <TabsContent value="depth" className="h-full m-0 p-0 overflow-hidden">
+                       <DepthChart symbol={activeSymbol} />
+                    </TabsContent>
+                    <TabsContent value="history" className="h-full m-0 p-4 text-[var(--color-text-tertiary)] text-[10px] font-mono">
+                      Market order history coming soon...
+                    </TabsContent>
+                    <TabsContent value="executions" className="h-full m-0 p-4 text-[var(--color-text-tertiary)] text-[10px] font-mono">
+                      No active executions detected.
+                    </TabsContent>
+                  </div>
+                </Tabs>
+              </div>
           </div>
-        </Tabs>
+
+          {/* Right Sidebar - Order Book & Trade Tape */}
+          <div className="col-span-12 lg:col-span-4 flex flex-col gap-1.5 overflow-hidden">
+              <Card 
+                  variant="outline" 
+                  header="Order Book"
+                  className="flex-1 border-[var(--color-border)] shadow-none"
+              >
+                  <OrderBook symbol={activeSymbol} />
+              </Card>
+              <Card 
+                  variant="outline" 
+                  header="Recent Trades"
+                  className="h-1/3 min-h-[250px] border-[var(--color-border)] shadow-none"
+              >
+                  <TradeTape symbol={activeSymbol} />
+              </Card>
+          </div>
       </div>
 
-      {/* Replay Controls Layer (Floating Bottom Center) */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass px-6 py-2 rounded-full !bg-zinc-950/80 !backdrop-blur-xl border-zinc-500/30">
+      {/* Floating Replay Controls */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-6 py-2 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border-strong)]/30 shadow-2xl backdrop-blur-xl">
         <ReplayControls />
       </div>
-      {/* Overlay UI */}
       <ReplayPanel />
     </div>
   );

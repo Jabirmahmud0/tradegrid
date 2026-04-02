@@ -1,15 +1,52 @@
 import * as React from 'react';
-import { Activity, Bell, ChevronDown, Cpu, Globe, Search } from 'lucide-react';
+import { Activity, Bell, ChevronDown, Cpu, Globe, Search, Wifi, WifiOff, Check } from 'lucide-react';
 import { useLiveStore } from '../../store/live-store';
 import { Price } from '../common/Price';
 import { Badge } from '../common/Badge';
 import { StatusIndicator } from '../common/StatusIndicator';
 import { Button } from '../ui/Button';
+import { marketClient, DataSourceType } from '../../services/market-client';
 
 export const TopBar: React.FC = () => {
   const activeSymbol = useLiveStore((state) => state.activeSymbol);
   const activeInterval = useLiveStore((state) => state.activeInterval);
   const systemReady = useLiveStore((state) => state.systemReady);
+  
+  const [dataSourceOpen, setDataSourceOpen] = React.useState(false);
+  const [currentSource, setCurrentSource] = React.useState<DataSourceType>('mock');
+
+  // Sync with marketClient state
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSource(marketClient.sourceType);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const dataSources: { type: DataSourceType; label: string; description: string }[] = [
+    { type: 'mock', label: 'Mock Server', description: 'Local simulated data' },
+    { type: 'binance-testnet', label: 'Binance Testnet', description: 'Real-time testnet data' },
+    { type: 'binance', label: 'Binance Mainnet', description: 'Live market data' },
+  ];
+
+  const handleSelectSource = (type: DataSourceType) => {
+    setDataSourceOpen(false);
+    
+    switch (type) {
+      case 'mock':
+        marketClient.connectToMock();
+        break;
+      case 'binance-testnet':
+        marketClient.connectToBinanceTestnet(['BTC-USD']);
+        break;
+      case 'binance':
+        marketClient.connectToBinance(['BTC-USD', 'ETH-USD']);
+        break;
+    }
+    
+    // Force re-render to update UI
+    setCurrentSource(type);
+  };
 
   return (
     <header className="h-12 border-b border-zinc-900 bg-zinc-950 flex items-center px-4 gap-6 shrink-0 relative z-10">
@@ -63,6 +100,67 @@ export const TopBar: React.FC = () => {
               <span>8/12</span>
             </div>
           </div>
+        </div>
+
+        {/* Data Source Selector */}
+        <div className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={() => setDataSourceOpen(!dataSourceOpen)}
+          >
+            {currentSource === 'mock' ? (
+              <WifiOff className="w-4 h-4 text-zinc-500" />
+            ) : (
+              <Wifi className="w-4 h-4 text-emerald-500" />
+            )}
+          </Button>
+          
+          {dataSourceOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setDataSourceOpen(false)}
+              />
+              <div className="absolute right-0 top-10 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+                <div className="p-3 border-b border-zinc-800">
+                  <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Data Source</h3>
+                </div>
+                <div className="p-2">
+                  {dataSources.map((source) => (
+                    <button
+                      key={source.type}
+                      onClick={() => handleSelectSource(source.type)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-800 transition-colors group"
+                    >
+                      <div className={`w-2 h-2 rounded-full ${
+                        currentSource === source.type 
+                          ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                          : 'bg-zinc-700'
+                      }`} />
+                      <div className="flex-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-zinc-200">{source.label}</span>
+                          {currentSource === source.type && (
+                            <Check className="w-3 h-3 text-emerald-500" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-500">{source.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="p-3 bg-zinc-950/50 border-t border-zinc-800">
+                  <p className="text-[10px] text-zinc-500">
+                    {currentSource === 'mock' 
+                      ? 'Using simulated market data' 
+                      : 'Connected to live data stream'}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

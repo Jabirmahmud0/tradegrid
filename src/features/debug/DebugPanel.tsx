@@ -22,9 +22,13 @@ export const DebugPanel: React.FC<{ className?: string }> = ({ className }) => {
     const [epsHistory, setEpsHistory] = useState<number[]>([]);
 
     useEffect(() => {
-        setFpsHistory(prev => [...prev.slice(-49), metrics.fps]);
-        setEpsHistory(prev => [...prev.slice(-49), metrics.eventsPerSec]);
-    }, [metrics.fps, metrics.eventsPerSec]);
+        const interval = setInterval(() => {
+            const currentMetrics = useLiveStore.getState().metrics;
+            setFpsHistory(prev => [...prev.slice(-49), currentMetrics.fps]);
+            setEpsHistory(prev => [...prev.slice(-49), currentMetrics.eventsPerSec]);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest('.drag-handle')) {

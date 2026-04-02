@@ -1,28 +1,28 @@
 :root {
-  /* Backgrounds */
-  --color-bg-base: #080b0f;
-  --color-bg-surface: #0d1117;
-  --color-bg-elevated: #131920;
-  --color-bg-overlay: #1a2330;
+  /* Backgrounds (Binance Dark) */
+  --color-bg-base: #0b0e11;
+  --color-bg-surface: #181a20;
+  --color-bg-elevated: #1e2329;
+  --color-bg-overlay: #2b3139;
 
   /* Text */
-  --color-text-primary: #e8edf3;
-  --color-text-secondary: #8a9bb0;
-  --color-text-tertiary: #4a5a6b;
-  --color-text-disabled: #2d3a47;
+  --color-text-primary: #eaecef;
+  --color-text-secondary: #848e9c;
+  --color-text-tertiary: #707a8a;
+  --color-text-disabled: #474d57;
 
   /* Semantic */
-  --color-profit: #00ff9d; /* neon green — positive / buy */
-  --color-loss: #ff3b5c;   /* vivid red — negative / sell */
-  --color-accent: #00d4ff; /* electric cyan — interactive / focus */
-  --color-warning: #ffb020;
+  --color-profit: #00c076; /* Binance Green */
+  --color-loss: #cf304a;   /* Binance Red */
+  --color-accent: #f0b90b; /* Binance Yellow */
+  --color-warning: #f0b90b;
 
   /* Borders */
-  --color-border-subtle: #1e2b38;
-  --color-border: #263344;
-  --color-border-strong: #344d63;
+  --color-border-subtle: #1e2329;
+  --color-border: #2b2f36;
+  --color-border-strong: #474d57;
 
-  /* Spacing (Institutional density) */
+  /* Spacing */
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 0.75rem;

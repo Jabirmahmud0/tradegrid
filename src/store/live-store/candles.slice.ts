@@ -35,12 +35,13 @@ export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice
           buffer.push(candle);
         }
 
-        return {
+        const result = {
           candles: {
             ...state.candles,
-            [key]: buffer.toArray().reverse(), // Store newest first
+            [key]: buffer.toArray(), // Store chronological (oldest to newest)
           },
         };
+        return result;
       }),
     setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) =>
       set((state: CandlesSlice) => {
@@ -53,7 +54,7 @@ export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice
         return {
           candles: {
             ...state.candles,
-            [key]: buffer.toArray().reverse(),
+            [key]: buffer.toArray(),
           },
         };
       }),

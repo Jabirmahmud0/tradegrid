@@ -35,7 +35,7 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
       cell: info => (
         <span className={cn(
           "font-bold tabular-nums",
-          info.row.original.side === 's' ? "text-red-400" : "text-emerald-400"
+          info.row.original.side === 's' ? "text-[var(--color-loss)]" : "text-[var(--color-profit)]"
         )}>
           {info.getValue().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
@@ -43,11 +43,11 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
     }),
     columnHelper.accessor('qty', {
       header: 'Qty',
-      cell: info => <span className="text-zinc-400 text-right">{info.getValue().toFixed(4)}</span>,
+      cell: info => <span className="text-[var(--color-text-secondary)] text-right">{info.getValue().toFixed(4)}</span>,
     }),
     columnHelper.accessor('formattedTime', {
       header: 'Time',
-      cell: info => <span className="text-zinc-500 text-right tabular-nums">{info.getValue()}</span>,
+      cell: info => <span className="text-[var(--color-text-tertiary)] text-right tabular-nums">{info.getValue()}</span>,
     }),
   ], []);
 
@@ -80,7 +80,6 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop } = e.currentTarget;
-    // If user scrolls down more than 50px, lock the position
     if (scrollTop > 50 && !scrollLock) {
         setScrollLock(true);
     } else if (scrollTop <= 10 && scrollLock) {
@@ -89,9 +88,9 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-zinc-950 font-mono text-[10px] relative transition-opacity", className)}>
+    <div className={cn("flex flex-col h-full bg-[var(--color-bg-base)] font-mono text-[10px] relative transition-opacity", className)}>
       {/* Header Overlay */}
-      <div className="grid grid-cols-3 px-3 py-1.5 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur z-10 text-[9px] uppercase tracking-widest text-zinc-600 font-bold">
+      <div className="grid grid-cols-3 px-3 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg-base)] backdrop-blur z-10 text-[9px] uppercase tracking-widest text-[var(--color-text-secondary)] font-bold">
         {table.getHeaderGroups()[0].headers.map(header => (
           <div key={header.id} className={cn(header.index > 0 && "text-right")}>
             {flexRender(header.column.columnDef.header, header.getContext())}
@@ -103,7 +102,7 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
       <div 
         ref={parentRef} 
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto scrollbar-hide relative"
+        className="flex-1 overflow-y-auto scrollbar-hide relative text-[var(--color-text-primary)]"
       >
         {trades.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center p-6">
@@ -134,9 +133,9 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                   className={cn(
-                      "grid grid-cols-3 px-3 py-0.5 items-center hover:bg-zinc-900/50 transition-colors cursor-default border-l-2 border-transparent",
-                      isFresh && !scrollLock && (trade.side === 's' ? "animate-flash-red" : "animate-flash-green"),
-                      trade.side === 's' ? "hover:border-red-500/30" : "hover:border-emerald-500/30"
+                      "grid grid-cols-3 px-3 py-0.5 items-center hover:bg-[var(--color-bg-surface)] transition-colors cursor-default border-l-2 border-transparent",
+                      isFresh && !scrollLock && (trade.side === 's' ? "animate-pulse" : "animate-pulse"),
+                      trade.side === 's' ? "hover:border-[var(--color-loss)]/30" : "hover:border-[var(--color-profit)]/30"
                   )}
                 >
                   {row.getVisibleCells().map(cell => (
@@ -158,7 +157,7 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
               setScrollLock(false);
               virtualizer.scrollToIndex(0);
            }}
-           className="absolute bottom-4 right-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 px-2 py-1 rounded flex items-center gap-1.5 backdrop-blur-sm transition-all animate-in fade-in slide-in-from-bottom-2"
+           className="absolute bottom-4 right-4 bg-[var(--color-profit)]/10 hover:bg-[var(--color-profit)]/20 text-[var(--color-profit)] border border-[var(--color-profit)]/30 px-2 py-1 rounded flex items-center gap-1.5 backdrop-blur-sm transition-all animate-in fade-in slide-in-from-bottom-2"
         >
             <Lock size={10} />
             <span className="text-[9px] font-bold uppercase tracking-wider">Scrolled Up</span>

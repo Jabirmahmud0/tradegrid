@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: tradegrid-mock-server
+    env: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npx tsx src/index.ts
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000

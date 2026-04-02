@@ -1,7 +1,12 @@
 import { StreamEvent } from '../../types';
 
-export type MainThreadMessage = 
-  | { type: 'CONNECT'; payload: { url: string } }
+export interface ReconnectOptions {
+  endpoints?: string[];
+}
+
+export type MainThreadMessage =
+  | { type: 'CONNECT'; payload: { url: string; reconnectOptions?: ReconnectOptions } }
+  | { type: 'DISCONNECT' }
   | { type: 'SUBSCRIBE'; payload: { symbols: string[] } }
   | { type: 'UNSUBSCRIBE'; payload: { symbols: string[] } }
   | { type: 'CONTROL_COMMAND'; payload: ControlCommand };

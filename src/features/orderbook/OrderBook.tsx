@@ -38,8 +38,8 @@ const LevelRow: React.FC<{
             ref={virtualRow.measureElement}
             className={cn(
                 "absolute top-0 left-0 w-full grid grid-cols-3 px-3 py-[1px] cursor-default text-[10px] font-mono shrink-0 transition-colors",
-                flash && (isBid ? "bg-emerald-500/20" : "bg-red-500/20"),
-                !flash && "hover:bg-zinc-900"
+                flash && (isBid ? "bg-[var(--color-profit)]/20" : "bg-[var(--color-loss)]/20"),
+                !flash && "hover:bg-[var(--color-bg-surface)]"
             )}
             style={{ 
                 height: `${virtualRow.size}px`,
@@ -50,18 +50,18 @@ const LevelRow: React.FC<{
             <div 
                 className={cn(
                     "absolute top-0 right-0 h-full opacity-10 transition-all duration-300 pointer-events-none",
-                    isBid ? "bg-emerald-500" : "bg-red-500"
+                    isBid ? "bg-[var(--color-profit)]" : "bg-[var(--color-loss)]"
                 )}
                 style={{ width: `${percentage}%` }}
             />
             
-            <div className={cn("font-bold z-10", isBid ? "text-emerald-400" : "text-red-400")}>
+            <div className={cn("font-bold z-10", isBid ? "text-[var(--color-profit)]" : "text-[var(--color-loss)]")}>
                 {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="text-right text-zinc-300 z-10 tabular-nums">
+            <div className="text-right text-[var(--color-text-primary)] z-10 tabular-nums">
                 {size.toFixed(4)}
             </div>
-            <div className="text-right text-zinc-500 z-10 tabular-nums">
+            <div className="text-right text-[var(--color-text-secondary)] z-10 tabular-nums">
                 {total.toFixed(2)}
             </div>
         </div>
@@ -97,7 +97,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
 
   if (!book) {
     return (
-        <div className={cn("flex flex-col items-center justify-center h-full bg-zinc-950", className)}>
+        <div className={cn("flex flex-col items-center justify-center h-full bg-[var(--color-bg-base)]", className)}>
             <LoadingSpinner label="Calibrating Order Flow" size={32} />
         </div>
     );
@@ -109,9 +109,9 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
   const spreadPercent = spread > 0 ? (spread / bestAsk) * 100 : 0;
 
   return (
-    <div className={cn("flex flex-col h-full bg-zinc-950 font-mono text-[10px]", className)}>
+    <div className={cn("flex flex-col h-full bg-[var(--color-bg-base)] font-mono text-[10px]", className)}>
       {/* Header */}
-      <div className="grid grid-cols-3 px-3 py-1.5 border-b border-zinc-900 bg-zinc-900/10 text-[9px] font-bold text-zinc-600 uppercase tracking-widest z-10">
+      <div className="grid grid-cols-3 px-3 py-1.5 border-b border-[var(--color-border)] bg-[var(--color-bg-surface)] text-[9px] font-bold text-[var(--color-text-secondary)] uppercase tracking-widest z-10">
         <div>Price</div>
         <div className="text-right">Size</div>
         <div className="text-right">Total</div>
@@ -142,17 +142,17 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
       </div>
 
       {/* Ticker / Mid Price */}
-      <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/30 border-y border-zinc-800 my-[1px] relative shadow-lg">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-surface)] border-y border-[var(--color-border)] my-[1px] relative shadow-lg">
         <div className="flex flex-col">
             <span className={cn(
                 "text-base lg:text-lg font-bold leading-none",
-                book.asks[0]?.price > (useLiveStore.getState().trades[0]?.px || 0) ? "text-emerald-400" : "text-red-400"
+                book.asks[0]?.price > (useLiveStore.getState().trades[0]?.px || 0) ? "text-[var(--color-profit)]" : "text-[var(--color-loss)]"
             )}>
                 {bestAsk > 0 ? ((bestAsk + bestBid) / 2).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "---"}
             </span>
             <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] text-zinc-500 font-bold">SPREAD</span>
-                <span className="text-[9px] text-zinc-400 tabular-nums">{spread.toFixed(2)} ({spreadPercent.toFixed(3)}%)</span>
+                <span className="text-[9px] text-[var(--color-text-secondary)] font-bold uppercase">SPREAD</span>
+                <span className="text-[9px] text-[var(--color-text-tertiary)] tabular-nums">{spread.toFixed(2)} ({spreadPercent.toFixed(3)}%)</span>
             </div>
         </div>
       </div>
