@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useLiveStore } from '../../store/live-store';
 import { cn } from '../../utils';
+import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 
 interface OrderBookProps {
   symbol: string;
@@ -96,8 +97,8 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
 
   if (!book) {
     return (
-        <div className={cn("flex items-center justify-center h-full text-zinc-800 text-xs italic", className)}>
-            Awaiting order flow...
+        <div className={cn("flex flex-col items-center justify-center h-full bg-zinc-950", className)}>
+            <LoadingSpinner label="Calibrating Order Flow" size={32} />
         </div>
     );
   }

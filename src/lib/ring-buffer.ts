@@ -94,6 +94,10 @@ export class RingBuffer<T> {
     return this.count;
   }
 
+  get length(): number {
+    return this.count;
+  }
+
   get maxCapacity(): number {
     return this.capacity;
   }

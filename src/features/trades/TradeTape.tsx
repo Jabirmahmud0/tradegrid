@@ -10,6 +10,7 @@ import { useLiveStore } from '../../store/live-store';
 import { NormalizedTrade } from '../../types';
 import { cn } from '../../utils';
 import { Lock, Zap } from 'lucide-react';
+import { EmptyState } from '../../components/common/EmptyState';
 
 interface TradeTapeProps {
   symbol: string;
@@ -98,50 +99,56 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
         ))}
       </div>
 
-      {/* List Container */}
+      {/* List Container / Empty State */}
       <div 
         ref={parentRef} 
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto scrollbar-hide relative"
       >
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            position: 'relative',
-          }}
-        >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            const trade = row.original;
-            const isFresh = virtualRow.index === 0;
+        {trades.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <EmptyState message="No trades" className="scale-75" />
+          </div>
+        ) : (
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              const trade = row.original;
+              const isFresh = virtualRow.index === 0;
 
-            return (
-              <div
-                key={trade.id}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-                className={cn(
-                    "grid grid-cols-3 px-3 py-0.5 items-center hover:bg-zinc-900/50 transition-colors cursor-default border-l-2 border-transparent",
-                    isFresh && !scrollLock && (trade.side === 's' ? "animate-flash-red" : "animate-flash-green"),
-                    trade.side === 's' ? "hover:border-red-500/30" : "hover:border-emerald-500/30"
-                )}
-              >
-                {row.getVisibleCells().map(cell => (
-                  <div key={cell.id} className={cn(cell.column.id !== 'px' && "text-right")}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <div
+                  key={trade.id}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  className={cn(
+                      "grid grid-cols-3 px-3 py-0.5 items-center hover:bg-zinc-900/50 transition-colors cursor-default border-l-2 border-transparent",
+                      isFresh && !scrollLock && (trade.side === 's' ? "animate-flash-red" : "animate-flash-green"),
+                      trade.side === 's' ? "hover:border-red-500/30" : "hover:border-emerald-500/30"
+                  )}
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <div key={cell.id} className={cn(cell.column.id !== 'px' && "text-right")}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Floating Status Indicator */}

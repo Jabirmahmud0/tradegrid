@@ -5,6 +5,7 @@ import { CandlestickCanvas } from './CandlestickCanvas';
 import { CandlestickOverlay } from './CandlestickOverlay';
 import { useCandlestickScales, Box } from './use-candlestick-scales';
 import { ChartAriaOverlay } from './ChartAriaOverlay';
+import { EmptyState } from '../../../components/common/EmptyState';
 
 interface CandlestickChartProps {
   candles: NormalizedCandle[];
@@ -106,27 +107,33 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
         ))}
       </div>
 
-      <div 
-        ref={containerRef}
-        className="absolute inset-0 cursor-crosshair"
-        onWheel={handleWheel}
-        onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-      >
-        <CandlestickCanvas 
-            candles={visibleCandles} 
-            scales={scales} 
-            box={box}
-        />
-        <CandlestickOverlay 
-            scales={scales} 
-            box={box} 
-            crosshair={crosshair}
-            latestPrice={latestPrice}
-        />
-      </div>
+      {candles.length === 0 ? (
+        <div className="absolute inset-0 flex items-center justify-center p-12">
+            <EmptyState message="No market data" />
+        </div>
+      ) : (
+        <div 
+          ref={containerRef}
+          className="absolute inset-0 cursor-crosshair"
+          onWheel={handleWheel}
+          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+        >
+          <CandlestickCanvas 
+              candles={visibleCandles} 
+              scales={scales} 
+              box={box}
+          />
+          <CandlestickOverlay 
+              scales={scales} 
+              box={box} 
+              crosshair={crosshair}
+              latestPrice={latestPrice}
+          />
+        </div>
+      )}
 
       {/* 6. Accessibility Overlay */}
       <ChartAriaOverlay 
