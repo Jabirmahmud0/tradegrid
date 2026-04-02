@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "npm run start --prefix server",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "mock-server": "npm run start --prefix mock-server",
+    "dev:all": "concurrently \"npm run dev\" \"npm run mock-server\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

@@ -4,21 +4,47 @@ import http from 'http';
 import { MarketSimulator } from './engine/simulation.js';
 import { DataGenerator } from './engine/generators.js';
 import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, ScenarioState } from './engine/scenarios.js';
+import { HeatmapGenerator } from './engine/heatmap.js';
 
 const PORT = 4000;
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+  // Handle HTTP Replay API
+  if (req.url === '/v1/replay' && req.method === 'GET') {
+    res.writeHead(200, { 
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*' // Enable CORS for development
+    });
+    res.end(JSON.stringify(historicalBuffer));
+    return;
+  }
+  
+  res.writeHead(404);
+  res.end();
+});
+
 const wss = new WebSocketServer({ server });
 
-const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD'];
+const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 'LINK-USD', 'ADA-USD', 'DOT-USD', 'MATIC-USD', 'AVAX-USD'];
 const simulator = new MarketSimulator(symbols);
 const generator = new DataGenerator(simulator);
+
+// HEATMAP GENERATOR
+const heatmapGen = new HeatmapGenerator(symbols, (snapshot) => {
+  const binary = encode(snapshot);
+  clients.forEach(client => {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(binary);
+    }
+  });
+});
+heatmapGen.start();
 
 let currentScenario: ScenarioState = { ...DEFAULT_SCENARIO };
 let ticker: NodeJS.Timeout | null = null;
 
 // Replay State
 let historicalBuffer: any[] = [];
-const BUFFER_SIZE = 5000;
+const BUFFER_SIZE = 10000;
 let isReplaying = false;
 let replayCursor = 0;
 let playbackSpeed = 1;
@@ -52,7 +78,6 @@ wss.on('connection', (ws: WebSocket) => {
     console.log(`[Server] Client disconnected: ${id} (Total: ${clients.size})`);
   });
 
-  // Send welcome message (JSON)
   ws.send(JSON.stringify({ type: 'welcome', id, symbols }));
 });
 
@@ -93,7 +118,7 @@ function handleMessage(client: Client, message: any) {
 }
 
 function handleScenarioChange(mode: string) {
-  isReplaying = false; // Always exit replay when scenario changes
+  isReplaying = false; 
   switch (mode) {
     case 'BURST':
       currentScenario = { ...BURST_SCENARIO };
@@ -109,17 +134,15 @@ function handleScenarioChange(mode: string) {
   restartTicker();
 }
 
-// SIMULATION LOOP (Ticker)
 function startTicker() {
   if (ticker) return;
 
   const run = () => {
     if (isReplaying && historicalBuffer.length > 0) {
-        // REPLAY MODE: Send data from buffer
         for (let i = 0; i < playbackSpeed; i++) {
             if (replayCursor < historicalBuffer.length) {
                 const event = historicalBuffer[replayCursor];
-                broadcast(event.s || 'BTC-USD', event, true); // true = raw replay
+                broadcast(event.s || 'BTC-USD', event, true);
                 replayCursor++;
             } else {
                 isReplaying = false;
@@ -129,7 +152,6 @@ function startTicker() {
         }
         ticker = setTimeout(run, 100);
     } else {
-        // LIVE MODE: Generate new data
         symbols.forEach(symbol => {
           const iterations = currentScenario.mode === 'BURST' ? currentScenario.burstMultiplier : 1;
           for (let i = 0; i < iterations; i++) {
@@ -155,11 +177,7 @@ function restartTicker() {
 
 startTicker();
 
-/**
- * Broadcast event to all subbed clients using MessagePack (Binary)
- */
 function broadcast(symbol: string, event: any, isReplay = false) {
-  // 1. Buffer for history (if not already a replay event)
   if (!isReplay) {
       historicalBuffer.push(event);
       if (historicalBuffer.length > BUFFER_SIZE) {
@@ -167,7 +185,6 @@ function broadcast(symbol: string, event: any, isReplay = false) {
       }
   }
 
-  // 2. Scenario Drop simulation
   if (!isReplay && currentScenario.mode === 'FAILURE' && Math.random() < currentScenario.failureRate) {
     return;
   }
@@ -182,5 +199,5 @@ function broadcast(symbol: string, event: any, isReplay = false) {
 }
 
 server.listen(PORT, () => {
-  console.log(`[Server] TradeGrid Mock Stream Backend running on ws://localhost:${PORT}`);
+  console.log(`[Server] TradeGrid Mock Stream Backend running on http/ws://localhost:${PORT}`);
 });
