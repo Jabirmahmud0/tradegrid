@@ -22,7 +22,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Terminal', badge: null },
-    { id: 'analytics', icon: BarChart3, label: 'Analytics', badge: 'Pro' },
+    { id: 'analytics', icon: BarChart3, label: 'Analytics', badge: null },
     { id: 'replay', icon: Clock, label: 'Time Machine', badge: null },
     { id: 'data', icon: Database, label: 'Storage', badge: '92%' },
     { id: 'status', icon: ShieldCheck, label: 'Security', badge: null },

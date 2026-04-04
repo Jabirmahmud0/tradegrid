@@ -6,7 +6,12 @@
       "Bash(timeout *)",
       "Bash(netstat *)",
       "Bash(findstr *)",
-      "Bash(taskkill *)"
+      "Bash(taskkill *)",
+      "Bash(del *)",
+      "Bash(rmdir *)",
+      "Bash(npx *)",
+      "Bash(git checkout *)",
+      "Bash(mkdir *)"
     ]
   },
   "$version": 3

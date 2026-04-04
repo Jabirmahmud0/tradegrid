@@ -5,7 +5,7 @@ import { cn } from '../../utils';
 import { Play, Pause, Activity, Rewind } from 'lucide-react';
 
 export const ReplayControls: React.FC = () => {
-  const { mode, status, speed, setReplayMode, setReplayStatus, setReplaySpeed } = useLiveStore();
+  const { mode, status, speed, progress, setReplayMode, setReplayStatus, setReplaySpeed, setReplayProgress } = useLiveStore();
 
   const handleToggleMode = () => {
     if (mode === 'LIVE') {
@@ -22,7 +22,7 @@ export const ReplayControls: React.FC = () => {
   const handlePlayPause = () => {
     const nextStatus = status === 'PLAYING' ? 'PAUSED' : 'PLAYING';
     setReplayStatus(nextStatus);
-    
+
     if (nextStatus === 'PLAYING') {
         marketClient.startReplay(speed);
     } else {
@@ -37,15 +37,22 @@ export const ReplayControls: React.FC = () => {
     }
   };
 
+  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    setReplayProgress(pct);
+  };
+
   return (
     <div className="flex items-center gap-4 bg-zinc-900/80 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-full shadow-2xl">
       {/* Mode Toggle */}
-      <button 
+      <button
         onClick={handleToggleMode}
         className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all",
-            mode === 'LIVE' 
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+            mode === 'LIVE'
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                 : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
         )}
       >
@@ -56,16 +63,17 @@ export const ReplayControls: React.FC = () => {
       {/* Playback Controls (Visible only in Replay) */}
       {mode === 'REPLAY' && (
         <div className="flex items-center gap-6 border-l border-zinc-800 pl-6 h-6">
-            <button 
+            <button
                 onClick={handlePlayPause}
                 className="text-zinc-100 hover:text-white transition-colors"
+                aria-label={status === 'PLAYING' ? 'Pause' : 'Play'}
             >
                 {status === 'PLAYING' ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
             </button>
 
-            {/* Speed Multipliers */}
+            {/* Speed Multipliers — PRD spec: 0.5x, 1x, 5x, 10x, 100x */}
             <div className="flex items-center gap-1 bg-zinc-950/50 p-0.5 rounded-md border border-zinc-800">
-                {[1, 2, 5, 10].map(s => (
+                {[0.5, 1, 5, 10, 100].map(s => (
                     <button
                         key={s}
                         onClick={() => handleSpeedChange(s)}
@@ -79,9 +87,20 @@ export const ReplayControls: React.FC = () => {
                 ))}
             </div>
 
-            {/* Scrub Bar (Simulation) */}
-            <div className="w-32 h-1 bg-zinc-800 rounded-full relative overflow-hidden group cursor-pointer">
-                <div className="absolute top-0 left-0 h-full bg-amber-500 w-1/3" />
+            {/* Scrub Bar — interactive */}
+            <div
+                className="w-32 h-1 bg-zinc-800 rounded-full relative overflow-hidden cursor-pointer group"
+                onClick={handleScrub}
+                role="slider"
+                aria-label="Replay progress"
+                aria-valuenow={Math.round(progress * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+            >
+                <div
+                    className="absolute top-0 left-0 h-full bg-amber-500 transition-all duration-100 group-hover:bg-amber-400"
+                    style={{ width: `${progress * 100}%` }}
+                />
             </div>
         </div>
       )}

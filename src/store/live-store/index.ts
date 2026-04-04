@@ -7,6 +7,7 @@ import { createLayoutSlice, LayoutSlice } from '../ui-store/layout.slice';
 import { createThemeSlice, ThemeSlice } from '../ui-store/theme.slice';
 import { createReplaySlice, ReplaySlice } from './replay.slice';
 import { createDebugSlice, DebugSlice } from './debug.slice';
+import { createMarketStatsSlice, MarketStatsSlice } from './market-stats.slice';
 
 export interface RootState 
   extends TradesSlice, 
@@ -16,6 +17,7 @@ export interface RootState
           LayoutSlice, 
           ThemeSlice, 
           ReplaySlice, 
+          MarketStatsSlice,
           DebugSlice {}
 
 export const useLiveStore = create<RootState>()((...a) => ({
@@ -27,4 +29,5 @@ export const useLiveStore = create<RootState>()((...a) => ({
   ...createThemeSlice(...a),
   ...createReplaySlice(...a),
   ...createDebugSlice(...a),
+  ...createMarketStatsSlice(...a),
 }));

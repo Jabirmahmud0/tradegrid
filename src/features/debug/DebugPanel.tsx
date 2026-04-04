@@ -103,34 +103,48 @@ export const DebugPanel: React.FC<{ className?: string }> = ({ className }) => {
             <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-hide max-h-[450px]">
                 
                 {/* 1. Core Metrics Grid */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                     <MetricCard 
                         label="Frames / Sec" 
                         value={metrics.fps} 
                         unit="fps" 
-                        icon={<Gauge size={12}/>} 
+                        icon={<Gauge size={10}/>} 
                         color={metrics.fps > 55 ? "emerald" : "red"} 
                     />
                     <MetricCard 
-                        label="Dispatch Lag" 
-                        value={metrics.dispatchLatency.toFixed(1)} 
-                        unit="ms" 
-                        icon={<Clock size={12}/>} 
-                        color="amber" 
+                        label="Dropped" 
+                        value={metrics.droppedFrames} 
+                        unit="fr" 
+                        icon={<Activity size={10}/>} 
+                        color={metrics.droppedFrames > 0 ? "red" : "zinc"} 
                     />
                     <MetricCard 
-                        label="Memory Use" 
-                        value={metrics.memoryEstimate.toFixed(1)} 
-                        unit="mb" 
-                        icon={<HardDrive size={12}/>} 
-                        color="blue" 
+                        label="Worker Decode" 
+                        value={metrics.workerDecodeTime.toFixed(2)} 
+                        unit="ms" 
+                        icon={<Zap size={10}/>} 
+                        color={metrics.workerDecodeTime > 5 ? "amber" : "emerald"} 
+                    />
+                    <MetricCard 
+                        label="Render Latency" 
+                        value={metrics.renderLatency.toFixed(2)} 
+                        unit="ms" 
+                        icon={<Clock size={10}/>} 
+                        color={metrics.renderLatency > 16 ? "red" : "blue"} 
                     />
                     <MetricCard 
                         label="Queue Depth" 
                         value={metrics.queueDepth} 
                         unit="ev" 
-                        icon={<Layers size={12}/>} 
+                        icon={<Layers size={10}/>} 
                         color={metrics.queueDepth > 100 ? "red" : "zinc"} 
+                    />
+                    <MetricCard 
+                        label="Memory Use" 
+                        value={metrics.memoryEstimate.toFixed(1)} 
+                        unit="mb" 
+                        icon={<HardDrive size={10}/>} 
+                        color="blue" 
                     />
                 </div>
 

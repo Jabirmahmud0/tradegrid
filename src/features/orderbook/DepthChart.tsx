@@ -1,91 +1,110 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLiveStore } from '../../store/live-store';
-import { cn } from '../../utils';
 import { DepthCanvas } from './DepthCanvas';
 import { DepthOverlay } from './DepthOverlay';
 import { useDepthScales } from './use-depth-scales';
+import { OrderBookLevel } from '../../store/live-store/orderbook.slice';
 
 interface DepthChartProps {
-  symbol: string;
   className?: string;
+  symbol: string;
 }
 
-export const DepthChart: React.FC<DepthChartProps> = ({ symbol, className }) => {
+export const DepthChart: React.FC<DepthChartProps> = ({ className, symbol }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [crosshair, setCrosshair] = useState<{ x: number, y: number } | null>(null);
+  const [activeLevel, setActiveLevel] = useState<OrderBookLevel | null>(null);
 
-  const book = useLiveStore(state => state.books[symbol]);
+  // Selector for orderbook
+  const orderbook = useLiveStore(state => state.books[symbol]);
 
-  // 1. Responsive Observer
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setDimensions({ width, height });
+      const entry = entries[0];
+      if (entry) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+      }
     });
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, []);
 
-  const scales = useDepthScales(
-      book?.bids || [], 
-      book?.asks || [], 
-      dimensions.width, 
-      dimensions.height
-  );
+  const bids = orderbook?.bids || [];
+  const asks = orderbook?.asks || [];
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setCrosshair({ x, y });
-  };
-
-  const handleMouseLeave = () => setCrosshair(null);
+  const scales = useDepthScales(bids, asks, dimensions.width, dimensions.height);
 
   return (
     <div 
         ref={containerRef} 
-        className={cn("w-full h-full bg-zinc-950 overflow-hidden relative group select-none", className)}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        className={`w-full h-full relative bg-zinc-950 overflow-hidden focus-visible:ring-2 focus-visible:ring-emerald-500 outline-none ${className}`}
+        style={{ backgroundColor: 'var(--color-bg-base)' }}
+        tabIndex={0}
+        role="img"
+        aria-label={`Market Depth profile for ${symbol}`}
     >
-        {!book && (
-             <div className="flex items-center justify-center h-full text-zinc-800 text-xs italic">
-                Gathering liquidity map...
-             </div>
-        )}
-        
-        {book && (
-            <div className="absolute inset-0 cursor-crosshair">
-                <DepthCanvas 
-                    bids={book.bids} 
-                    asks={book.asks} 
-                    scales={scales} 
-                />
-                <DepthOverlay 
-                    scales={scales} 
-                    crosshair={crosshair} 
-                    bestBid={book.bids[0]?.price || 0}
-                    bestAsk={book.asks[0]?.price || 0}
-                />
-                
-                {/* 2. Volume Labels In Corners */}
-                <div className="absolute top-2 left-2 text-[8px] font-bold text-emerald-500 uppercase tracking-widest pointer-events-none">
-                    BUYS (BIDS)
-                </div>
-                <div className="absolute top-2 right-2 text-[8px] font-bold text-red-500 uppercase tracking-widest pointer-events-none">
-                    SELLS (ASKS)
-                </div>
-                
-                {/* 3. Scale Legend */}
-                <div className="absolute bottom-1 right-1/2 translate-x-1/2 text-[8px] font-mono text-zinc-700 bg-zinc-950/80 px-2 rounded-full uppercase border border-zinc-900 border-none transition-opacity">
-                    Quantity x Price Distribution
-                </div>
-            </div>
-        )}
+      {/* Hidden Data for Screen Readers */}
+      <div className="sr-only">
+          <table>
+              <caption>{symbol} Liquidity Depth Data</caption>
+              <thead>
+                  <tr>
+                      <th>Price</th>
+                      <th>Total Volume</th>
+                      <th>Type</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  {bids.slice(0, 5).map((b: OrderBookLevel) => (
+                      <tr key={b.price}>
+                          <td>{b.price}</td>
+                          <td>{b.total}</td>
+                          <td>Bid</td>
+                      </tr>
+                  ))}
+                  {asks.slice(0, 5).map((a: OrderBookLevel) => (
+                      <tr key={a.price}>
+                          <td>{a.price}</td>
+                          <td>{a.total}</td>
+                          <td>Ask</td>
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
+      </div>
+      {!orderbook && (
+        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 font-mono text-xs uppercase tracking-widest">
+            Fetching Liquidity Profile...
+        </div>
+      )}
+
+      {orderbook && (
+        <>
+          <DepthCanvas 
+            bids={bids}
+            asks={asks}
+            scales={scales}
+          />
+          <DepthOverlay 
+            bids={bids}
+            asks={asks}
+            scales={scales}
+            activeLevel={activeLevel}
+            onMouseMove={setActiveLevel}
+          />
+        </>
+      )}
+
+      {/* Symbol Overlay */}
+      <div className="absolute bottom-4 left-4 pointer-events-none">
+        <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest bg-zinc-900/50 px-2 py-0.5 rounded border border-zinc-800">
+            {symbol} / DEPTH
+        </span>
+      </div>
     </div>
   );
 };

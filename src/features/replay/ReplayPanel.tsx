@@ -1,20 +1,45 @@
 import React from 'react';
 import { Play, Pause, FastForward, Rewind, Activity, Zap, Cpu } from 'lucide-react';
-import { useReplayStore } from '../../store/replay-store';
 import { useLiveStore } from '../../store/live-store';
+import { marketClient } from '../../services/market-client';
 import { cn } from '../../utils';
 
 export const ReplayPanel: React.FC = () => {
-    const { isReplaying, isPaused, speed, progress, setPaused, setSpeed, reset } = useReplayStore();
-    const metrics = useLiveStore(state => state.metrics);
+    const { mode, status, speed, progress, metrics, setReplayStatus, setReplaySpeed, setReplayProgress, resetReplay } = useLiveStore();
 
-    if (!isReplaying) return null;
+    // Derived state — panel is visible only when in REPLAY mode
+    const isPaused = status === 'PAUSED';
+
+    if (mode !== 'REPLAY') return null;
+
+    const handlePlayPause = () => {
+        const nextStatus = status === 'PLAYING' ? 'PAUSED' : 'PLAYING';
+        setReplayStatus(nextStatus);
+
+        if (nextStatus === 'PLAYING') {
+            marketClient.startReplay(speed);
+        } else {
+            marketClient.stopReplay();
+        }
+    };
+
+    const handleExitReplay = () => {
+        marketClient.stopReplay();
+        resetReplay();
+    };
+
+    const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const pct = Math.max(0, Math.min(1, x / rect.width));
+        setReplayProgress(pct);
+    };
 
     return (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-full max-w-4xl px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden p-4 shadow-emerald-500/5">
                 <div className="flex flex-col gap-4">
-                    
+
                     {/* Top Section: Metrics & Scrubbing */}
                     <div className="flex items-center justify-between gap-6">
                         {/* Buffer / Load Stats */}
@@ -37,8 +62,8 @@ export const ReplayPanel: React.FC = () => {
                                 <Activity size={12} className="text-blue-500" />
                                 <span className="uppercase tracking-tighter">Load:</span>
                                 <div className="h-2 w-16 bg-zinc-800 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-blue-500/50 transition-all duration-300" 
+                                    <div
+                                        className="h-full bg-blue-500/50 transition-all duration-300"
                                         style={{ width: `${Math.min(100, metrics.queueDepth / 10)}%` }}
                                     />
                                 </div>
@@ -46,24 +71,27 @@ export const ReplayPanel: React.FC = () => {
                         </div>
 
                         {/* Close Replay Button */}
-                        <button 
-                            onClick={reset}
+                        <button
+                            onClick={handleExitReplay}
                             className="text-[9px] font-bold text-zinc-600 hover:text-red-400 uppercase tracking-widest transition-colors"
                         >
                             Exit Replay Mode
                         </button>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="relative group/progress">
-                        <div className="h-1.5 w-full bg-zinc-800 rounded-full cursor-pointer overflow-hidden">
-                            <div 
-                                className="h-full bg-emerald-500 transition-all duration-300"
+                    {/* Progress Bar — interactive scrub */}
+                    <div
+                        className="relative group/progress cursor-pointer"
+                        onClick={handleScrub}
+                    >
+                        <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-emerald-500 transition-all duration-100"
                                 style={{ width: `${progress * 100}%` }}
                             />
                         </div>
-                        <div 
-                            className="absolute -top-4 text-[9px] font-bold text-emerald-400 opacity-0 group-hover/progress:opacity-100 transition-opacity"
+                        <div
+                            className="absolute -top-4 text-[9px] font-bold text-emerald-400 opacity-0 group-hover/progress:opacity-100 transition-opacity pointer-events-none"
                             style={{ left: `${progress * 100}%`, transform: 'translateX(-50%)' }}
                         >
                             {(progress * 100).toFixed(1)}%
@@ -73,35 +101,49 @@ export const ReplayPanel: React.FC = () => {
                     {/* Controls Footer */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setReplayProgress(Math.max(0, progress - 0.1))}
+                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Rewind"
+                            >
                                 <Rewind size={18} />
                             </button>
-                            <button 
-                                onClick={() => setPaused(!isPaused)}
+                            <button
+                                onClick={handlePlayPause}
                                 className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
-                                    isPaused 
-                                        ? "bg-emerald-500 text-zinc-950 hover:scale-110 shadow-lg shadow-emerald-500/20" 
+                                    isPaused
+                                        ? "bg-emerald-500 text-zinc-950 hover:scale-110 shadow-lg shadow-emerald-500/20"
                                         : "bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
                                 )}
+                                aria-label={isPaused ? 'Play' : 'Pause'}
                             >
                                 {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
                             </button>
-                            <button className="p-2 text-zinc-400 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setReplayProgress(Math.min(1, progress + 0.1))}
+                                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                                aria-label="Fast forward"
+                            >
                                 <FastForward size={18} />
                             </button>
                         </div>
 
-                        {/* Speed Selector */}
+                        {/* Speed Selector — matches PRD spec: 0.5x, 1x, 5x, 10x, 100x */}
                         <div className="flex items-center bg-zinc-950/50 rounded-lg p-1 border border-zinc-800">
-                            {[0.5, 1.0, 2.0, 5.0, 10.0].map((s) => (
+                            {[0.5, 1, 5, 10, 100].map((s) => (
                                 <button
                                     key={s}
-                                    onClick={() => setSpeed(s)}
+                                    onClick={() => {
+                                        setReplaySpeed(s);
+                                        if (status === 'PLAYING') {
+                                            marketClient.startReplay(s);
+                                        }
+                                    }}
                                     className={cn(
                                         "px-2.5 py-1 rounded text-[10px] font-bold font-mono transition-all",
-                                        speed === s 
-                                            ? "bg-zinc-800 text-white shadow-sm" 
+                                        speed === s
+                                            ? "bg-zinc-800 text-white shadow-sm"
                                             : "text-zinc-600 hover:text-zinc-400"
                                     )}
                                 >

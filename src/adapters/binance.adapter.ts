@@ -13,16 +13,24 @@ export const BINANCE_STREAM_ENDPOINTS = [
   'wss://stream.binance.com:443',
 ];
 
+export const BINANCE_TESTNET_STREAM_ENDPOINTS = [
+  'wss://stream.binancefuture.com',
+  'wss://testnet.binance.vision',
+];
+
 /**
  * Build Binance WebSocket subscription URL using combined stream format
  * @param symbols - Array of symbols in TradeGrid format (e.g., ['BTC-USD', 'ETH-USD'])
  * @param endpointIndex - Which endpoint to use (0 = primary, 1+ = fallback)
+ * @param isTestnet - Whether to use the testnet endpoints
  */
 export function buildBinanceStreamUrl(
   symbols: string[],
-  endpointIndex: number = 0
+  endpointIndex: number = 0,
+  isTestnet: boolean = false
 ): string {
-  const baseUrl = BINANCE_STREAM_ENDPOINTS[endpointIndex % BINANCE_STREAM_ENDPOINTS.length];
+  const endpoints = isTestnet ? BINANCE_TESTNET_STREAM_ENDPOINTS : BINANCE_STREAM_ENDPOINTS;
+  const baseUrl = endpoints[endpointIndex % endpoints.length];
   
   const streams = symbols.flatMap(sym => {
     const binanceSym = toBinanceSymbol(sym);

@@ -36,6 +36,8 @@ export interface OrderBookEvent extends BaseEvent {
 export class DataGenerator {
   private simulator: MarketSimulator;
   private ohlcv: Map<string, any> = new Map();
+  private candleOpenTime: Map<string, number> = new Map();
+  private readonly CANDLE_DURATION_MS = 60000; // 1 minute candles
 
   constructor(simulator: MarketSimulator) {
     this.simulator = simulator;
@@ -44,7 +46,7 @@ export class DataGenerator {
   public generateTrade(symbol: string): TradeEvent {
     const tick = this.simulator.tick(symbol);
     const quantity = (Math.random() * 2).toFixed(4);
-    
+
     return {
       e: 'trade',
       E: Date.now(),
@@ -56,15 +58,27 @@ export class DataGenerator {
   }
 
   public generateCandle(symbol: string): CandleEvent {
+    const now = Date.now();
     const price = this.simulator.getPrice(symbol);
-    let state = this.ohlcv.get(symbol) || { o: price, h: price, l: price, c: price, v: 0 };
     
-    // Update daily OHLC (simulated)
-    state.h = Math.max(state.h, price);
-    state.l = Math.min(state.l, price);
-    state.c = price;
+    // Check if we need to start a new candle
+    const lastOpenTime = this.candleOpenTime.get(symbol) || 0;
+    const isNewCandle = now - lastOpenTime >= this.CANDLE_DURATION_MS;
+    
+    let state = this.ohlcv.get(symbol);
+    
+    if (isNewCandle || !state) {
+      // Start new candle
+      state = { o: price, h: price, l: price, c: price, v: 0 };
+      this.candleOpenTime.set(symbol, now);
+    } else {
+      // Update existing candle
+      state.h = Math.max(state.h, price);
+      state.l = Math.min(state.l, price);
+      state.c = price;
+    }
+    
     state.v = (parseFloat(state.v) + Math.random() * 10).toFixed(2);
-    
     this.ohlcv.set(symbol, state);
 
     return {

@@ -10,6 +10,7 @@ export interface PerformanceMetrics {
   eventsPerSec: number;
   workerDecodeTime: number;
   dispatchLatency: number;
+  renderLatency: number;
   memoryEstimate: number;
 }
 
@@ -38,6 +39,7 @@ export const createDebugSlice: StateCreator<DebugSlice, [], [], DebugSlice> = (s
       eventsPerSec: 0,
       workerDecodeTime: 0,
       dispatchLatency: 0,
+      renderLatency: 0,
       memoryEstimate: 0,
     },
     eventLog: [],

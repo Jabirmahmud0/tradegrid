@@ -25,8 +25,8 @@ export interface CandlestickScales {
 export const useCandlestickScales = (
   candles: NormalizedCandle[],
   box: Box,
-  gap: number = 2,
-  volumeRatio: number = 0.15
+  gap: number = 3,
+  volumeRatio: number = 0.10
 ): CandlestickScales => {
   return useMemo(() => {
     const chartWidth = box.width - box.margin.left - box.margin.right;
@@ -59,9 +59,12 @@ export const useCandlestickScales = (
       if (c.v > maxVolume) maxVolume = c.v;
     });
 
-    const pricePadding = (maxPrice - minPrice) * 0.12 || 1;
-    maxPrice += pricePadding;
-    minPrice -= pricePadding;
+    // Ensure minimum price range to avoid division by zero
+    const rawRange = maxPrice - minPrice;
+    const pricePadding = rawRange * 0.12 || Math.max(rawRange, 1);
+    const minPadding = Math.max(Math.abs(maxPrice) * 0.01, 1); // At least 1% of price or 1
+    maxPrice += Math.max(pricePadding, minPadding);
+    minPrice -= Math.max(pricePadding, minPadding);
     const priceRange = maxPrice - minPrice;
 
     const candleWidth = chartWidth / candles.length - gap;

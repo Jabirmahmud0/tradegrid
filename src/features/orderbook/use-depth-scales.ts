@@ -1,53 +1,56 @@
 import { useMemo } from 'react';
-
-export interface DepthLevel {
-    price: number;
-    size: number;
-    total: number;
-}
+import * as d3 from 'd3';
+import { OrderBookLevel } from '../../store/live-store/orderbook.slice';
 
 export interface DepthScales {
-    minPrice: number;
-    maxPrice: number;
-    priceRange: number;
-    maxTotal: number;
-    width: number;
-    height: number;
-    getX: (price: number) => number;
-    getY: (total: number) => number;
-    getPrice: (x: number) => number;
-    getTotal: (y: number) => number;
+  x: d3.ScaleLinear<number, number>;
+  y: d3.ScaleLinear<number, number>;
+  width: number;
+  height: number;
+  margin: { top: number; right: number; bottom: number; left: number };
+  chartWidth: number;
+  chartHeight: number;
 }
 
 export const useDepthScales = (
-    bids: DepthLevel[],
-    asks: DepthLevel[],
-    width: number,
-    height: number
+  bids: OrderBookLevel[],
+  asks: OrderBookLevel[],
+  width: number,
+  height: number
 ): DepthScales => {
-    return useMemo(() => {
-        if (!bids.length || !asks.length) {
-            return {
-                minPrice: 0, maxPrice: 100, priceRange: 100, maxTotal: 100,
-                width, height,
-                getX: () => 0, getY: () => 0, getPrice: () => 0, getTotal: () => 0
-            };
-        }
+  const margin = { top: 20, right: 60, bottom: 30, left: 20 };
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
 
-        const minPrice = bids[bids.length - 1].price;
-        const maxPrice = asks[asks.length - 1].price;
-        const priceRange = maxPrice - minPrice;
-        const maxTotal = Math.max(bids[bids.length - 1].total, asks[asks.length - 1].total);
+  return useMemo(() => {
+    if (bids.length === 0 || asks.length === 0) {
+      return {
+        x: d3.scaleLinear(),
+        y: d3.scaleLinear(),
+        width,
+        height,
+        margin,
+        chartWidth,
+        chartHeight,
+      };
+    }
 
-        const getX = (price: number) => ((price - minPrice) / priceRange) * width;
-        const getY = (total: number) => height - (total / maxTotal) * height;
-        const getPrice = (x: number) => minPrice + (x / width) * priceRange;
-        const getTotal = (y: number) => ((height - y) / height) * maxTotal;
+    const allPrices = [...bids, ...asks].map((d) => d.price);
+    const priceDomain = [d3.min(allPrices) || 0, d3.max(allPrices) || 0];
+    
+    const maxTotal = d3.max([...bids, ...asks].map((d) => d.total)) || 0;
 
-        return {
-            minPrice, maxPrice, priceRange, maxTotal,
-            width, height,
-            getX, getY, getPrice, getTotal
-        };
-    }, [bids, asks, width, height]);
+    const x = d3.scaleLinear().domain(priceDomain).range([margin.left, margin.left + chartWidth]);
+    const y = d3.scaleLinear().domain([0, maxTotal * 1.1]).range([margin.top + chartHeight, margin.top]);
+
+    return {
+      x,
+      y,
+      width,
+      height,
+      margin,
+      chartWidth,
+      chartHeight,
+    };
+  }, [bids, asks, width, height, chartWidth, chartHeight]);
 };

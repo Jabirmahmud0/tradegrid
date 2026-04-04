@@ -5,6 +5,7 @@ import { CandlestickCanvas } from './CandlestickCanvas';
 import { CandlestickOverlay } from './CandlestickOverlay';
 import { useCandlestickScales, Box } from './use-candlestick-scales';
 import { ChartAriaOverlay } from './ChartAriaOverlay';
+import { useLiveStore } from '../../../store/live-store';
 import { EmptyState } from '../../../components/common/EmptyState';
 
 interface CandlestickChartProps {
@@ -17,11 +18,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   // 1. Chart Configuration & Scale State
-  const [visibleCount, setVisibleCount] = useState(120);
+  const [visibleCount, setVisibleCount] = useState(80);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [crosshair, setCrosshair] = useState<{ x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
-  const [selectedInterval, setSelectedInterval] = useState('1m');
+  const activeInterval = useLiveStore(state => state.activeInterval);
+  const setActiveInterval = useLiveStore(state => state.setActiveInterval);
 
   const MARGIN = { top: 30, right: 70, bottom: 30, left: 0 };
 
@@ -102,14 +104,18 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
   return (
     <div className={cn("relative w-full h-full select-none bg-[#0b0e11] overflow-hidden", className)}>
       {/* 5. Toolbars / Overlays */}
-      <div className="absolute top-2 right-20 flex gap-1 z-20">
+      <div className="absolute top-2 right-2 flex gap-1 z-20 items-center">
+        <div className="flex gap-2 mr-4 text-[10px] font-mono font-bold">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#f0b90b]"></span> MA(7)</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#8739fa]"></span> MA(25)</span>
+        </div>
         {['1m', '5m', '15m', '1h', '1D'].map((interval) => (
             <button 
                 key={interval}
-                onClick={() => setSelectedInterval(interval)}
+                onClick={() => setActiveInterval(interval as any)}
                 className={cn(
                     "px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-tighter transition-colors",
-                    selectedInterval === interval ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:bg-zinc-900"
+                    activeInterval === interval ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:bg-zinc-900"
                 )}
             >
                 {interval}
@@ -152,11 +158,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
       <ChartAriaOverlay 
           candles={visibleCandles} 
           symbol="CURRENT" 
-          interval={selectedInterval} 
+          interval={activeInterval} 
       />
 
       {/* 7. Interaction Hints */}
-      <div className="absolute bottom-1 right-20 text-[9px] font-mono text-zinc-600 pointer-events-none uppercase">
+      <div className="absolute bottom-1 right-2 text-[9px] font-mono text-zinc-600 pointer-events-none uppercase">
           Wheel: Zoom • Drag: Pan • {visibleCount} Bars
       </div>
     </div>

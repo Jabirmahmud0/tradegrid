@@ -96,7 +96,7 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
               y1={currentPriceY}
               x2={margin.left + chartWidth}
               y2={currentPriceY}
-              stroke="#52525b"
+              stroke={latestPrice && candle && latestPrice >= candle.o ? "#00c076" : "#cf304a"}
               strokeDasharray="4 2"
               strokeWidth="1"
             />
@@ -105,7 +105,7 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
               y={currentPriceY - 8}
               width={margin.right}
               height={16}
-              fill="#52525b"
+              fill={latestPrice && candle && latestPrice >= candle.o ? "#00c076" : "#cf304a"}
             />
             <text
               x={margin.left + chartWidth + 6}
@@ -147,7 +147,9 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
               y={crosshair.y - 10}
               width={margin.right}
               height={20}
-              fill="#2b2f36"
+              fill="#181a20"
+              stroke="#2b2f36"
+              strokeWidth="1"
             />
             <text
               x={margin.left + chartWidth + 6}
@@ -166,7 +168,9 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
                         y={margin.top + chartHeight}
                         width={60}
                         height={18}
-                        fill="#2b2f36"
+                        fill="#181a20"
+                        stroke="#2b2f36"
+                        strokeWidth="1"
                     />
                     <text 
                         x={crosshair.x}

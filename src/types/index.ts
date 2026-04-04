@@ -10,11 +10,3 @@ export interface Instrument {
   quoteAsset: string;
   name: string;
 }
-
-export interface ReplayState {
-  isReplaying: boolean;
-  isPaused: boolean;
-  speed: number;
-  currentTime: number;
-  progress: number;
-}

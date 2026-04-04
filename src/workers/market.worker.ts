@@ -1,5 +1,6 @@
-import { decode } from '@msgpack/msgpack';
 import { normalizeEvent } from './normalization';
+import { decodePayload } from './decode';
+import { coalesceEvents } from './merge';
 import { MainThreadMessage, WorkerMessage } from '../streams/protocols/worker-protocol';
 import { WebSocketManager } from '../streams/socket/websocket-manager';
 import { StreamEvent } from '../types/stream.types';
@@ -117,77 +118,76 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
   }
 };
 
-function handleData(data: ArrayBuffer | string) {
-  // Binance sends JSON, mock server sends MessagePack
-  if (currentSourceType === 'binance' || !(data instanceof ArrayBuffer)) {
-    // Handle JSON (Binance or control messages)
-    try {
-      const json = typeof data === 'string' ? JSON.parse(data) : JSON.parse(new TextDecoder().decode(data));
+let metrics = {
+  decodeTime: 0,
+  ingestionTime: 0,
+  eventCount: 0
+};
 
-      // Check if it's a Binance market data event (unwrapped format)
-      if (json.e === 'trade' || json.e === 'kline') {
-        const normalized = normalizeEvent(json);
-        if (normalized) {
-          eventBuffer.push(normalized);
-        }
-      } else if (json.stream && json.data) {
-        // Binance stream wrapper format: {stream: "btcusdt@depth20@100ms", data: {...}}
-        const streamName = json.stream as string;
-        const symbol = streamName.split('@')[0].toUpperCase().replace('USDT', '-USD');
-        
-        if (json.data.lastUpdateId && json.data.bids && json.data.asks) {
-          // Binance depth update
-          const normalized = normalizeEvent({...json.data, sym: symbol});
-          if (normalized) {
-            eventBuffer.push(normalized);
-          }
-        } else if (json.data.e === 'trade' || json.data.e === 'kline') {
-          // Wrapped trade/candle
-          const normalized = normalizeEvent(json.data);
-          if (normalized) {
-            eventBuffer.push(normalized);
-          }
-        }
-      } else if (json.lastUpdateId && json.bids && json.asks) {
-        // Binance depth update (unwrapped)
-        const normalized = normalizeEvent(json);
-        if (normalized) {
-          eventBuffer.push(normalized);
-        }
-      } else if (json.type === 'pong' || json.type === 'welcome') {
-        // Control/latency messages - ignore
-        return;
-      } else {
-        // Control message or unknown format
-        ctx.postMessage({ type: 'CONTROL', payload: json } as any);
+function handleData(data: ArrayBuffer | string) {
+  const start = performance.now();
+  const parsed = decodePayload(data, currentSourceType);
+  const decoded = performance.now();
+  metrics.decodeTime += (decoded - start);
+  
+  if (!parsed) return;
+
+  if (currentSourceType === 'binance' || (typeof data === 'string' && parsed.type)) {
+    // Check if it's a Binance market data event (unwrapped format)
+    if (parsed.e === 'trade' || parsed.e === 'kline') {
+      const normalized = normalizeEvent(parsed);
+      if (normalized) eventBuffer.push(normalized);
+    } else if (parsed.stream && parsed.data) {
+      // Binance stream wrapper format
+      const streamName = parsed.stream as string;
+      const symbol = streamName.split('@')[0].toUpperCase().replace('USDT', '-USD');
+      
+      if (parsed.data.lastUpdateId && parsed.data.bids && parsed.data.asks) {
+        const normalized = normalizeEvent({...parsed.data, sym: symbol});
+        if (normalized) eventBuffer.push(normalized);
+      } else if (parsed.data.e === 'trade' || parsed.data.e === 'kline') {
+        const normalized = normalizeEvent(parsed.data);
+        if (normalized) eventBuffer.push(normalized);
       }
-    } catch (e) {
-      // Not JSON or parse error
-      console.warn('[Worker] JSON parse error:', e);
+    } else if (parsed.lastUpdateId && parsed.bids && parsed.asks) {
+      const normalized = normalizeEvent(parsed);
+      if (normalized) eventBuffer.push(normalized);
+    } else if (parsed.type === 'pong' || parsed.type === 'welcome') {
+      return;
+    } else {
+      ctx.postMessage({ type: 'CONTROL', payload: parsed } as any);
     }
-  } else if (data instanceof ArrayBuffer) {
-    // Handle MessagePack (mock server)
-    try {
-      const raw = decode(data) as any;
-      const normalized = normalizeEvent(raw);
-      if (normalized) {
-        eventBuffer.push(normalized);
-      }
-    } catch (err) {
-      console.error('[Worker] Decode error:', err);
+  } else {
+    // Mock server: forward control messages (pong/welcome), normalize market events
+    if (parsed.type === 'pong' || parsed.type === 'welcome') {
+      ctx.postMessage({ type: 'CONTROL', payload: parsed } as any);
+      return;
     }
+    const normalized = normalizeEvent(parsed);
+    if (normalized) eventBuffer.push(normalized);
   }
+  metrics.ingestionTime += (performance.now() - decoded);
+  metrics.eventCount++;
 }
 
 function startFlushLoop() {
   if (flushTimer) return;
   flushTimer = setInterval(() => {
     if (eventBuffer.length > 0) {
+      const avgDecode = metrics.eventCount > 0 ? metrics.decodeTime / metrics.eventCount : 0;
+      const avgIngest = metrics.eventCount > 0 ? metrics.ingestionTime / metrics.eventCount : 0;
+
       ctx.postMessage({
         type: 'BATCH_DATA',
-        payload: eventBuffer
+        payload: coalesceEvents(eventBuffer),
+        metrics: {
+          decodeTime: avgDecode,
+          ingestionTime: avgIngest
+        }
       } as WorkerMessage);
+
       eventBuffer = [];
+      metrics = { decodeTime: 0, ingestionTime: 0, eventCount: 0 };
     }
   }, FLUSH_INTERVAL_MS);
 }

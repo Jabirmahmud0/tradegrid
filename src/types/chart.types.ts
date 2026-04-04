@@ -1,3 +1,5 @@
+import type { ScaleTime, ScaleLinear } from 'd3-scale';
+
 export interface OHLCDataPoint {
   timestamp: number;
   open: number;
@@ -19,8 +21,10 @@ export interface ChartDimensions {
 }
 
 export interface ChartScale {
-  x: any; // D3 Time scale
-  y: any; // D3 Linear scale
+  x: ScaleTime<number, number>;
+  y: ScaleLinear<number, number>;
+  volumeY: ScaleLinear<number, number>;
+  price: ScaleLinear<number, number>;
 }
 
 export interface CrosshairPosition {

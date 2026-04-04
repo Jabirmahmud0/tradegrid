@@ -19,9 +19,9 @@ export type ControlCommand =
   | { type: 'replay-seek'; index: number };
 
 export type WorkerMessage = 
-  | { type: 'CONNECTED' }
+  | { type: 'CONNECTED'; payload?: { sourceType: string } }
   | { type: 'DISCONNECTED' }
-  | { type: 'BATCH_DATA'; payload: StreamEvent[] }
-  | { type: 'ERROR'; payload: { message: string; code?: string } }
+  | { type: 'BATCH_DATA'; payload: StreamEvent[]; metrics?: { decodeTime: number; ingestionTime: number } }
+  | { type: 'ERROR'; payload: { message: string; url?: string; errorType?: string; isTrusted?: boolean } }
   | { type: 'STATUS'; payload: { latency: number; connected: boolean } }
-  | { type: 'CONTROL'; payload: { type: 'pong' | 'scenario-set' | 'replay-ack' } };
+  | { type: 'CONTROL'; payload: any };

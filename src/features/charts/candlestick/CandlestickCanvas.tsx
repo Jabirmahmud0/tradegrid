@@ -100,23 +100,54 @@ export const CandlestickCanvas: React.FC<CandlestickCanvasProps> = ({ candles, s
       // Volume Bars (Subtle)
       const vY = getVolumeY(c.v);
       const baselineY = box.margin.top + chartHeight;
-      ctx.fillStyle = isUp ? 'rgba(0, 192, 118, 0.15)' : 'rgba(207, 48, 74, 0.15)';
+      ctx.fillStyle = isUp ? 'rgba(0, 192, 118, 0.08)' : 'rgba(207, 48, 74, 0.08)';
       ctx.fillRect(x, vY, candleWidth, baselineY - vY);
 
       // Wick
       ctx.strokeStyle = candleColor;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.8;
       ctx.beginPath();
-      ctx.moveTo(x + candleWidth / 2, getY(c.h));
-      ctx.lineTo(x + candleWidth / 2, getY(c.l));
+      // Snap to pixel center for sharper lines
+      const centerX = Math.floor(x + candleWidth / 2) + 0.5;
+      ctx.moveTo(centerX, getY(c.h));
+      ctx.lineTo(centerX, getY(c.l));
       ctx.stroke();
 
-      // Body (Solid color)
+      // Body
       const openY = getY(c.o);
       const closeY = getY(c.c);
-      ctx.fillStyle = candleColor;
       const bodyH = Math.max(1, Math.abs(openY - closeY));
-      ctx.fillRect(x, Math.min(openY, closeY), candleWidth, bodyH);
+      const minY = Math.min(openY, closeY);
+      
+      if (isUp) {
+        ctx.strokeStyle = candleColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(x + 0.5, minY + 0.5, candleWidth - 1, bodyH - 1, 1);
+        } else {
+            ctx.rect(x + 0.5, minY + 0.5, candleWidth - 1, bodyH - 1);
+        }
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = candleColor;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(x, minY, candleWidth, bodyH, 1);
+        } else {
+            ctx.rect(x, minY, candleWidth, bodyH);
+        }
+        ctx.fill();
+      }
+      
+      // Glow on latest candle
+      if (i === candles.length - 1) {
+          ctx.shadowColor = candleColor;
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = candleColor;
+          ctx.fillRect(x + candleWidth/2 - 1, closeY - 1, 2, 2);
+          ctx.shadowBlur = 0; // reset
+      }
     });
 
   }, [candles, scales, box]);

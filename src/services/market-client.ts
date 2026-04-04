@@ -1,6 +1,7 @@
 import { useLiveStore } from '../store/live-store';
 import { StreamEvent, NormalizedTrade, NormalizedCandle, BookDeltaEvent, HeatmapEvent } from '../types/stream.types';
-import { buildBinanceStreamUrl, BINANCE_STREAM_ENDPOINTS } from '../adapters/binance.adapter';
+import { buildBinanceStreamUrl, BINANCE_STREAM_ENDPOINTS, BINANCE_TESTNET_STREAM_ENDPOINTS } from '../adapters/binance.adapter';
+import { rafFlushController } from '../streams/buffering/raf-flush-controller';
 
 export type DataSourceType = 'mock' | 'binance' | 'binance-testnet' | 'custom';
 
@@ -13,6 +14,7 @@ export interface ConnectOptions {
 class MarketClient {
   private worker: Worker | null = null;
   private currentSourceType: DataSourceType = 'mock';
+  private currentSymbols: string[] = [];
   private isConnected = false;
   private isConnecting = false;
 
@@ -33,7 +35,7 @@ class MarketClient {
     });
 
     this.worker.onmessage = (event) => {
-      const { type, payload } = event.data;
+      const { type, payload, metrics } = event.data;
 
       switch (type) {
         case 'CONNECTED':
@@ -47,7 +49,7 @@ class MarketClient {
           console.log('[MarketClient] Disconnected');
           break;
         case 'BATCH_DATA':
-          this.handleBatchData(payload as StreamEvent[]);
+          this.handleBatchData(payload as StreamEvent[], metrics);
           break;
         case 'CONTROL':
           if (payload.type === 'pong') {
@@ -58,8 +60,6 @@ class MarketClient {
         case 'ERROR':
           this.isConnecting = false;
           console.error('[MarketClient] Error:', payload);
-          console.error('[MarketClient] Source type:', this.currentSourceType);
-          console.error('[MarketClient] Connected:', this.isConnected);
           break;
       }
     };
@@ -71,13 +71,14 @@ class MarketClient {
   public connect(options: ConnectOptions = {}) {
     const { type = 'mock', url, symbols = [] } = options;
 
-    if (this.isConnected && this.currentSourceType === type) {
+    const symbolsMatch = this.currentSymbols.join(',') === symbols.join(',');
+    if (this.isConnected && this.currentSourceType === type && symbolsMatch) {
       console.log('[MarketClient] Already connected to', type, '- skipping redundant connection');
       return;
     }
 
-    // Prevent multiple simultaneous connection attempts
-    if (this.isConnecting) {
+    // Prevent multiple simultaneous connection attempts unless changing symbols
+    if (this.isConnecting && symbolsMatch) {
       console.log('[MarketClient] Connection already in progress - skipping redundant request');
       return;
     }
@@ -86,6 +87,7 @@ class MarketClient {
     this.disconnect();
 
     this.currentSourceType = type;
+    this.currentSymbols = symbols;
     this.isConnecting = true;
 
     let connectionUrl: string;
@@ -98,9 +100,8 @@ class MarketClient {
         console.log('[MarketClient] Connecting to Binance:', connectionUrl);
         break;
       case 'binance-testnet':
-        // Testnet uses different format - fall back to mainnet endpoints if failing
-        connectionUrl = buildBinanceStreamUrl(symbols, 0);
-        endpoints = BINANCE_STREAM_ENDPOINTS;
+        connectionUrl = buildBinanceStreamUrl(symbols, 0, true);
+        endpoints = BINANCE_TESTNET_STREAM_ENDPOINTS;
         console.log('[MarketClient] Connecting to Binance (testnet mode):', connectionUrl);
         break;
       case 'custom':
@@ -195,49 +196,43 @@ class MarketClient {
     }, 5000);
   }
 
-  private handleBatchData(events: StreamEvent[]) {
+  private handleBatchData(events: StreamEvent[], workerMetrics?: { decodeTime: number; ingestionTime: number }) {
     const store = useLiveStore.getState();
 
-    // Group events by type to use batch dispatchers
+    // Group events (worker already coalesced, but we accumulate across batches until RAF flush)
     const trades: NormalizedTrade[] = [];
     const candles: Record<string, NormalizedCandle> = {};
     const books: BookDeltaEvent[] = [];
     let latestHeatmap: HeatmapEvent | null = null;
 
-    events.forEach(event => {
+    for (const event of events) {
       switch (event.t) {
-        case 'trade':
-          trades.push(event as NormalizedTrade);
-          break;
-        case 'candle':
+        case 'trade': trades.push(event as NormalizedTrade); break;
+        case 'candle': {
           const candle = event as NormalizedCandle;
-          candles[candle.sym] = candle;
+          candles[`${candle.sym}-${candle.interval}`] = candle;
           break;
-        case 'book':
-          books.push(event as BookDeltaEvent);
-          break;
-        case 'heatmap':
-          latestHeatmap = event as HeatmapEvent;
-          break;
+        }
+        case 'book': books.push(event as BookDeltaEvent); break;
+        case 'heatmap': latestHeatmap = event as HeatmapEvent; break;
       }
+    }
+
+    // Mark system ready on first data
+    if (!store.systemReady && events.length > 0) store.setSystemReady(true);
+
+    // Update worker decode metric
+    if (workerMetrics) {
+      store.setMetrics({ workerDecodeTime: workerMetrics.decodeTime });
+    }
+
+    // Route through RAF flush controller — dispatches are frame-synced
+    rafFlushController.enqueue({
+      trades,
+      candles: Object.values(candles),
+      orderbooks: books,
+      heatmap: latestHeatmap,
     });
-
-    // Atomic dispatches to Zustand slices
-    if (trades.length > 0) store.addTrades(trades);
-
-    Object.values(candles).forEach(candle => {
-      store.setCandle(candle);
-    });
-
-    // For book deltas, we take the latest per symbol in this frame
-    const latestBooks: Record<string, BookDeltaEvent> = {};
-    books.forEach(b => latestBooks[b.sym] = b);
-    Object.values(latestBooks).forEach(book => {
-      store.applyOrderBookDelta(book);
-    });
-
-    // Heatmap: only take the latest in this frame
-    if (latestHeatmap) store.updateHeatmap(latestHeatmap);
   }
 }
 

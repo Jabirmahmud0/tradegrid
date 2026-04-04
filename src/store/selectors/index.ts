@@ -22,4 +22,5 @@ export const selectReplayState = (s: RootState) => ({
   status: s.status,
   speed: s.speed,
   cursor: s.cursor,
+  progress: s.progress,
 });
