@@ -21,6 +21,7 @@ export interface RawCandle {
     c: string;
     v: string;
     x: boolean;
+    T: number; // canonical candle open time
   };
 }
 
@@ -158,7 +159,7 @@ export function normalizeEvent(raw: any): StreamEvent | null {
         l: parseFloat(rawCandle.k.l),
         c,
         v: parseFloat(rawCandle.k.v),
-        ts: rawCandle.E,
+        ts: rawCandle.k.T, // canonical candle open time, not event emission time
         isUp: c >= o,
         changePercent: ((c - o) / o) * 100
       } as NormalizedCandle;

@@ -24,6 +24,7 @@ export interface CandleEvent extends BaseEvent {
     c: string; // close
     v: string; // volume
     x: boolean; // is closed
+    T: number;  // candle close/open time (canonical candle timestamp)
   }
 }
 
@@ -83,7 +84,7 @@ export class DataGenerator {
 
     return {
       e: 'candle',
-      E: Date.now(),
+      E: now,
       s: symbol,
       k: {
         o: state.o.toFixed(2),
@@ -91,7 +92,8 @@ export class DataGenerator {
         l: state.l.toFixed(2),
         c: state.c.toFixed(2),
         v: state.v,
-        x: false
+        x: false,
+        T: this.candleOpenTime.get(symbol) || now
       }
     };
   }

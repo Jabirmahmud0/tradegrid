@@ -31,7 +31,8 @@ describe('TradeGrid Normalization', () => {
         l: '1180',
         c: '1220',
         v: '5000',
-        x: true
+        x: true,
+        T: 1672531200000
       }
     };
 

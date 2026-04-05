@@ -14,10 +14,10 @@ export class MarketSimulator {
     // Initial prices and volatility for common assets
     symbols.forEach(symbol => {
       let basePrice = 50000;
-      let vol = 0.0002;
+      let vol = 0.001; // 0.1% — enough for visible 1m candle wicks
 
-      if (symbol.includes('ETH')) { basePrice = 2500; vol = 0.0004; }
-      if (symbol.includes('SOL')) { basePrice = 150; vol = 0.0006; }
+      if (symbol.includes('ETH')) { basePrice = 2500; vol = 0.002; }
+      if (symbol.includes('SOL')) { basePrice = 150; vol = 0.003; }
       
       this.prices.set(symbol, basePrice);
       this.volatility.set(symbol, vol);

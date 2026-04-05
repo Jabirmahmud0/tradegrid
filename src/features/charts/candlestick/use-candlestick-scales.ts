@@ -61,8 +61,10 @@ export const useCandlestickScales = (
 
     // Ensure minimum price range to avoid division by zero
     const rawRange = maxPrice - minPrice;
-    const pricePadding = rawRange * 0.12 || Math.max(rawRange, 1);
-    const minPadding = Math.max(Math.abs(maxPrice) * 0.01, 1); // At least 1% of price or 1
+    // Use 15% of actual data range as padding, with a reasonable floor
+    const pricePadding = rawRange > 0 ? rawRange * 0.15 : 10;
+    // Floor padding: 0.5% of price for high-priced assets (was 1%, too much for BTC)
+    const minPadding = Math.max(Math.abs(maxPrice) * 0.005, 0.5);
     maxPrice += Math.max(pricePadding, minPadding);
     minPrice -= Math.max(pricePadding, minPadding);
     const priceRange = maxPrice - minPrice;
