@@ -3,6 +3,7 @@ import { marketClient } from '../services/market-client';
 import { useLiveStore } from '../store/live-store';
 import { buildStreamSymbols, DEFAULT_STREAM_SYMBOLS } from '../lib/market-symbols';
 import { fetchBinanceCandles } from '../services/binance-market-data';
+import { fetchMockCandles } from '../services/mock-market-data';
 
 export interface MarketStreamControls {
   connectToBinance: () => void;
@@ -91,11 +92,20 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
   }, [activeInterval, activeSymbol]);
 
   useEffect(() => {
-    if (dataSource !== 'binance' && dataSource !== 'binance-testnet') return;
-
     const controller = new AbortController();
+    const hydrate = async () => {
+      if (dataSource === 'binance' || dataSource === 'binance-testnet') {
+        return fetchBinanceCandles(dataSource, activeSymbol, activeInterval, 300, controller.signal);
+      }
 
-    fetchBinanceCandles(dataSource, activeSymbol, activeInterval, 300, controller.signal)
+      if (dataSource === 'mock') {
+        return fetchMockCandles(activeSymbol, activeInterval, controller.signal);
+      }
+
+      return [];
+    };
+
+    hydrate()
       .then((candles) => {
         if (candles.length > 0) {
           setCandles(activeSymbol, activeInterval, candles);
@@ -103,7 +113,7 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        console.error('[useMarketStream] Failed to hydrate Binance candles:', error);
+        console.error('[useMarketStream] Failed to hydrate candles:', error);
       });
 
     return () => controller.abort();

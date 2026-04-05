@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { NormalizedCandle } from '../../../types';
 import { cn } from '../../../utils';
 import { CandlestickCanvas } from './CandlestickCanvas';
@@ -17,12 +17,14 @@ interface CandlestickChartProps {
 export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, className }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const deferredCandles = useDeferredValue(candles);
 
   // 1. Chart Configuration & Scale State
-  const [visibleCount, setVisibleCount] = useState(80);
+  const [visibleCount, setVisibleCount] = useState(140);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [crosshair, setCrosshair] = useState<{ x: number; y: number } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [hasManualZoom, setHasManualZoom] = useState(false);
   const activeInterval = useLiveStore(state => state.activeInterval);
   const setActiveInterval = useLiveStore(state => state.setActiveInterval);
 
@@ -47,11 +49,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
 
   // 3. Slice and Scale data
   const visibleCandles = useMemo(() => {
-    if (candles.length === 0) return [];
-    const end = Math.max(0, candles.length - scrollOffset);
+    if (deferredCandles.length === 0) return [];
+    const end = Math.max(0, deferredCandles.length - scrollOffset);
     const start = Math.max(0, end - visibleCount);
-    return candles.slice(start, end);
-  }, [candles, visibleCount, scrollOffset]);
+    return deferredCandles.slice(start, end);
+  }, [deferredCandles, visibleCount, scrollOffset]);
 
   const box = useMemo((): Box => ({
     width: dimensions.width,
@@ -61,15 +63,31 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
 
   const scales = useCandlestickScales(visibleCandles, box);
 
-  const latestPrice = candles.length > 0 ? candles[candles.length - 1].c : null;
+  const latestPrice = deferredCandles.length > 0 ? deferredCandles[deferredCandles.length - 1].c : null;
+
+  useEffect(() => {
+    if (hasManualZoom || dimensions.width <= 0) return;
+
+    const plotWidth = Math.max(320, dimensions.width - MARGIN.left - MARGIN.right);
+    const targetCellWidth = plotWidth >= 1440 ? 7 : plotWidth >= 1100 ? 8 : plotWidth >= 800 ? 9 : 11;
+    const targetBars = Math.round(plotWidth / targetCellWidth);
+    const availableBars = deferredCandles.length > 0 ? deferredCandles.length : 160;
+    setVisibleCount(Math.max(48, Math.min(availableBars, targetBars)));
+  }, [deferredCandles.length, dimensions.width, hasManualZoom]);
+
+  useEffect(() => {
+    setScrollOffset(0);
+  }, [activeInterval]);
 
   // 4. Interaction Handlers
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomSpeed = 0.1;
+    setHasManualZoom(true);
+    const zoomSpeed = 0.06;
     const delta = e.deltaY > 0 ? 1 : -1;
     const adjust = Math.round(visibleCount * zoomSpeed);
-    const newCount = Math.min(Math.min(500, candles.length), Math.max(20, visibleCount + delta * adjust));
+    const maxBars = deferredCandles.length > 0 ? Math.min(500, deferredCandles.length) : 500;
+    const newCount = Math.min(maxBars, Math.max(24, visibleCount + delta * adjust));
     setVisibleCount(newCount);
   };
 
@@ -91,7 +109,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
     if (isPanning) {
         const panSpeed = 0.8;
         const candlesMove = (e.movementX / (scales.candleWidth + 2)) * panSpeed;
-        const newOffset = Math.max(0, Math.min(candles.length - visibleCount, scrollOffset + candlesMove));
+        const newOffset = Math.max(0, Math.min(deferredCandles.length - visibleCount, scrollOffset + candlesMove));
         setScrollOffset(newOffset);
     }
   };
@@ -133,7 +151,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {candles.length === 0 ? (
+        {deferredCandles.length === 0 ? (
           <div className="absolute inset-0 flex items-center justify-center p-12">
               <EmptyState message="Syncing market data..." />
           </div>

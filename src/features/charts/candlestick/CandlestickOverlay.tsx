@@ -34,11 +34,20 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
     ? candles[hoveredIndex] 
     : candles?.[candles.length - 1];
 
+  const priceDecimals = latestPrice && latestPrice >= 1000 ? 2 : latestPrice && latestPrice >= 1 ? 4 : 6;
   const formatPrice = (p: number) => {
-    // Round to nice numbers for axis display
-    const nice = p >= 10000 ? Math.round(p / 10) * 10 : p >= 1000 ? Math.round(p) : p;
-    return nice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return p.toLocaleString(undefined, {
+      minimumFractionDigits: priceDecimals,
+      maximumFractionDigits: priceDecimals,
+    });
   };
+
+  const formatVolume = (value: number) =>
+    value >= 1_000_000
+      ? `${(value / 1_000_000).toFixed(2)}M`
+      : value >= 1_000
+        ? `${(value / 1_000).toFixed(2)}K`
+        : value.toFixed(3);
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -63,7 +72,7 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
           </div>
           <div className="flex gap-1.5 items-center">
             <span className="text-zinc-500 uppercase">Vol</span>
-            <span className="text-[#f0b90b] font-bold">{candle.v.toLocaleString()}</span>
+            <span className="text-[#f0b90b] font-bold">{formatVolume(candle.v)}</span>
           </div>
         </div>
       )}
@@ -104,7 +113,7 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
               y1={currentPriceY}
               x2={margin.left + chartWidth}
               y2={currentPriceY}
-              stroke={latestPrice && candle && latestPrice >= candle.o ? "#00c076" : "#cf304a"}
+              stroke={latestPrice && candle && latestPrice >= candle.o ? "#0ecb81" : "#f6465d"}
               strokeDasharray="4 2"
               strokeWidth="1"
             />
@@ -113,7 +122,7 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
               y={currentPriceY - 8}
               width={margin.right}
               height={16}
-              fill={latestPrice && candle && latestPrice >= candle.o ? "#00c076" : "#cf304a"}
+              fill={latestPrice && candle && latestPrice >= candle.o ? "#0ecb81" : "#f6465d"}
             />
             <text
               x={margin.left + chartWidth + 6}

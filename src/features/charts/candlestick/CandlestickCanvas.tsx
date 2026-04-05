@@ -15,13 +15,13 @@ const _fetchColors = () => {
   const root = getComputedStyle(document.documentElement);
   return {
     bg: root.getPropertyValue('--color-bg-base').trim() || '#0b0e11',
-    green: root.getPropertyValue('--color-profit').trim() || '#00c076',
-    red: root.getPropertyValue('--color-loss').trim() || '#cf304a',
+    green: root.getPropertyValue('--color-profit').trim() || '#0ecb81',
+    red: root.getPropertyValue('--color-loss').trim() || '#f6465d',
     grid: root.getPropertyValue('--color-border-subtle').trim() || '#1e2329',
     ma7: '#f0b90b',
-    ma25: '#8739fa',
-    volUp: 'rgba(0, 192, 118, 0.2)',
-    volDown: 'rgba(207, 48, 74, 0.2)'
+    ma25: '#7b61ff',
+    volUp: 'rgba(14, 203, 129, 0.14)',
+    volDown: 'rgba(246, 70, 93, 0.14)'
   };
 };
 const getColors = () => {
@@ -107,12 +107,12 @@ export const CandlestickCanvas: React.FC<CandlestickCanvasProps> = ({ candles, s
       // Volume Bars (Subtle)
       const vY = getVolumeY(c.v);
       const baselineY = box.margin.top + chartHeight;
-      ctx.fillStyle = isUp ? 'rgba(0, 192, 118, 0.08)' : 'rgba(207, 48, 74, 0.08)';
+      ctx.fillStyle = isUp ? COLORS.volUp : COLORS.volDown;
       ctx.fillRect(x, vY, candleWidth, baselineY - vY);
 
       // Wick
       ctx.strokeStyle = candleColor;
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       // Snap to pixel center for sharper lines
       const centerX = Math.floor(x + candleWidth / 2) + 0.5;
@@ -125,24 +125,24 @@ export const CandlestickCanvas: React.FC<CandlestickCanvasProps> = ({ candles, s
       const closeY = getY(c.c);
       const bodyH = Math.max(1, Math.abs(openY - closeY));
       const minY = Math.min(openY, closeY);
-      
-      if (isUp) {
+
+      const bodyWidth = Math.max(1, candleWidth - 1);
+      const bodyX = x + Math.max(0, (candleWidth - bodyWidth) / 2);
+
+      if (bodyWidth <= 2) {
         ctx.strokeStyle = candleColor;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = bodyWidth;
         ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(x + 0.5, minY + 0.5, candleWidth - 1, bodyH - 1, 1);
-        } else {
-            ctx.rect(x + 0.5, minY + 0.5, candleWidth - 1, bodyH - 1);
-        }
+        ctx.moveTo(centerX, minY);
+        ctx.lineTo(centerX, minY + bodyH);
         ctx.stroke();
       } else {
         ctx.fillStyle = candleColor;
         ctx.beginPath();
         if (ctx.roundRect) {
-            ctx.roundRect(x, minY, candleWidth, bodyH, 1);
+            ctx.roundRect(bodyX, minY, bodyWidth, bodyH, 1);
         } else {
-            ctx.rect(x, minY, candleWidth, bodyH);
+            ctx.rect(bodyX, minY, bodyWidth, bodyH);
         }
         ctx.fill();
       }
@@ -150,7 +150,7 @@ export const CandlestickCanvas: React.FC<CandlestickCanvasProps> = ({ candles, s
       // Glow on latest candle
       if (i === candles.length - 1) {
           ctx.shadowColor = candleColor;
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 6;
           ctx.fillStyle = candleColor;
           ctx.fillRect(x + candleWidth/2 - 1, closeY - 1, 2, 2);
           ctx.shadowBlur = 0; // reset

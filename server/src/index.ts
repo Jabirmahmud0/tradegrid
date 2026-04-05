@@ -53,8 +53,9 @@ app.get('/symbols', (req, res) => {
 
 app.get('/history/:symbol', (req, res) => {
     const { symbol } = req.params;
+    const interval = typeof req.query.interval === 'string' ? req.query.interval : undefined;
     const candles = historicalBuffer
-        .filter(event => event.t === 'candle' && event.sym === symbol)
+        .filter(event => event.e === 'candle' && event.s === symbol && (!interval || event.interval === interval))
         .slice(-500); // Return last 500 candles
     res.json(candles);
 });
@@ -196,7 +197,7 @@ function startTicker() {
             if (Math.random() > 0.8) {
               const trade = generator.generateTrade(symbol);
               // Feed price to heatmap generator
-              heatmapGen.updatePrices(symbol, parseFloat(trade.p));
+              heatmapGen.updatePrices(symbol, parseFloat(trade.p), parseFloat(trade.p) * parseFloat(trade.q));
               broadcast(symbol, trade);
             }
             if (Date.now() % 500 < 100) broadcast(symbol, generator.generateOrderBook(symbol));

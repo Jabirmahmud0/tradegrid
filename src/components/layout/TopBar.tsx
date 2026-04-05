@@ -10,12 +10,16 @@ import { useSymbols, useServerStatus } from '../../services/market-data.queries'
 import { buildStreamSymbols } from '../../lib/market-symbols';
 import { cn } from '../../utils';
 
+const EMPTY_CANDLES: readonly never[] = [];
+
 export const TopBar: React.FC = () => {
   const activeSymbol = useLiveStore((state) => state.activeSymbol);
   const activeInterval = useLiveStore((state) => state.activeInterval);
   const systemReady = useLiveStore((state) => state.systemReady);
   const metrics = useLiveStore((state) => state.metrics);
   const stats = useLiveStore((state) => state.stats[activeSymbol]);
+  const activeCandles = useLiveStore((state) => state.candles[`${activeSymbol}-${activeInterval}`] || EMPTY_CANDLES);
+  const trades = useLiveStore((state) => state.trades);
   const dataSource = useLiveStore((state) => state.dataSource);
 
   // HTTP-fetched metadata via TanStack Query (not streaming state)
@@ -26,8 +30,13 @@ export const TopBar: React.FC = () => {
   const [intervalDropdownOpen, setIntervalDropdownOpen] = React.useState(false);
   const [dataSourceDropdownOpen, setDataSourceDropdownOpen] = React.useState(false);
 
-  // Real system cores
+  // Estimated active processing units
   const cores = React.useMemo(() => typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4, []);
+  const activeProcessingUnits = React.useMemo(() => {
+    let units = 1;
+    if (systemReady || metrics.workerDecodeTime > 0) units += 1;
+    return Math.min(cores, units);
+  }, [cores, metrics.workerDecodeTime, systemReady]);
 
   // Fallback symbols if HTTP fetch hasn't completed
   const FALLBACK_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 'AVAX-USD', 'ADA-USD', 'MATIC-USD', 'LINK-USD'];
@@ -42,6 +51,36 @@ export const TopBar: React.FC = () => {
     { type: 'binance-testnet', label: 'Binance Testnet', description: 'Real-time testnet data' },
     { type: 'binance', label: 'Binance Mainnet', description: 'Live market data' },
   ];
+  const activeDataSource = dataSources.find((source) => source.type === dataSource);
+
+  const derivedStats = React.useMemo(() => {
+    const latestCandle = activeCandles[activeCandles.length - 1];
+    const prevCandle = activeCandles[activeCandles.length - 2];
+    const latestTrade = trades.find((trade) => trade.sym === activeSymbol);
+
+    if (!latestCandle && !latestTrade) return null;
+
+    const price = latestCandle?.c ?? latestTrade?.px ?? 0;
+    const prevPrice = prevCandle?.c ?? latestCandle?.o ?? latestTrade?.px ?? price;
+    const visibleWindow = activeCandles.slice(-Math.min(activeCandles.length, 144));
+    const high24h = visibleWindow.length > 0 ? Math.max(...visibleWindow.map((candle) => candle.h)) : price;
+    const low24h = visibleWindow.length > 0 ? Math.min(...visibleWindow.map((candle) => candle.l)) : price;
+    const volume24h = visibleWindow.reduce((sum, candle) => sum + candle.v, 0);
+    const change24h = price - prevPrice;
+    const changePercent24h = prevPrice > 0 ? (change24h / prevPrice) * 100 : 0;
+
+    return {
+      price,
+      prevPrice,
+      change24h,
+      changePercent24h,
+      high24h,
+      low24h,
+      volume24h,
+    };
+  }, [activeCandles, activeSymbol, trades]);
+
+  const displayStats = stats ?? derivedStats;
 
   const handleSelectSource = (type: 'mock' | 'binance' | 'binance-testnet') => {
     setDataSourceDropdownOpen(false);
@@ -74,7 +113,7 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <header className="h-12 border-b border-zinc-900 bg-zinc-950 flex items-center px-4 gap-6 shrink-0 relative z-10" role="banner">
+    <header className="h-12 border-b border-zinc-900 bg-zinc-950 flex items-center px-4 gap-6 shrink-0 relative z-40" role="banner">
       {/* Symbol Selector */}
       <div className="relative flex items-center gap-2 pr-4 border-r border-zinc-900 h-8">
         <div className="flex flex-col">
@@ -175,13 +214,13 @@ export const TopBar: React.FC = () => {
 
       {/* Real-time Price */}
       <div className="flex items-center gap-4 flex-1">
-        {stats ? (
+        {displayStats ? (
           <div className="flex items-center gap-6">
             <div className="flex flex-col">
-              <Price value={stats.price} prevValue={stats.prevPrice} size="lg" />
+              <Price value={displayStats.price} prevValue={displayStats.prevPrice} size="lg" />
               <div className="flex items-center gap-2 -mt-0.5">
-                <Price value={stats.changePercent24h} showSign size="sm" className="font-bold" />
-                <span className="text-[10px] text-zinc-500 font-bold uppercase">Vol {stats.volume24h > 1000000 ? (stats.volume24h/1000000).toFixed(1) + 'M' : stats.volume24h.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                <Price value={displayStats.changePercent24h} showSign size="sm" className="font-bold" />
+                <span className="text-[10px] text-zinc-500 font-bold uppercase">Vol {displayStats.volume24h > 1000000 ? (displayStats.volume24h/1000000).toFixed(1) + 'M' : displayStats.volume24h.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
               </div>
             </div>
           </div>
@@ -204,13 +243,19 @@ export const TopBar: React.FC = () => {
             <span className="text-[10px] text-zinc-600 font-bold uppercase leading-none mb-1">Cores</span>
             <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-400">
               <Cpu className="w-2.5 h-2.5" />
-              <span>1/{cores}</span>
+              <span>{activeProcessingUnits}/{cores}</span>
             </div>
           </div>
         </div>
 
         {/* Data Source Selector */}
-        <div className="relative">
+        <div className="relative z-[70] flex items-center gap-2">
+          <div className="hidden xl:flex flex-col items-end min-w-[120px]">
+            <span className="text-[10px] text-zinc-600 font-bold uppercase leading-none mb-1">Data Source</span>
+            <span className="text-[11px] font-semibold text-zinc-300 truncate max-w-[120px]">
+              {activeDataSource?.label ?? 'Unknown'}
+            </span>
+          </div>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -230,7 +275,7 @@ export const TopBar: React.FC = () => {
                 className="fixed inset-0 z-40"
                 onClick={() => setDataSourceDropdownOpen(false)}
               />
-              <div className="absolute right-0 top-10 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-10 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-[90] overflow-hidden">
                 <div className="p-3 border-b border-zinc-800">
                   <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Data Source</h3>
                 </div>

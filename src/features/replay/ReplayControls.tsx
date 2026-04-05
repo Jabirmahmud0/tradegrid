@@ -7,6 +7,7 @@ import { Play, Pause, Activity, Rewind, Flag } from 'lucide-react';
 // Replay time range (mock: 24 hours in ms)
 const REPLAY_DURATION_MS = 24 * 60 * 60 * 1000;
 const REPLAY_START_TIME = Date.now() - REPLAY_DURATION_MS;
+const REPLAY_END_TIME = REPLAY_START_TIME + REPLAY_DURATION_MS;
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -168,7 +169,7 @@ export const ReplayControls: React.FC = () => {
                     />
                 </div>
                 <span className="text-[9px] font-mono text-zinc-500 tabular-nums">
-                    {formatTime(replayEndTime)}
+                    {formatTime(REPLAY_END_TIME)}
                 </span>
             </div>
         </div>

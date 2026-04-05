@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useLayoutEffect, useState, useCallback, useEffect, useDeferredValue } from 'react';
 import * as d3 from 'd3';
 import { useLiveStore } from '../../store/live-store';
 import { cn } from '../../utils';
@@ -63,6 +63,7 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
       ts: Math.max(...cells.map((cell) => grouped.get(cell.sym)?.[0]?.ts ?? 0)),
     };
   }, [dataSource, heatmap, trades]);
+  const deferredHeatmap = useDeferredValue(displayHeatmap);
 
   // ResizeObserver to track container size changes
   useEffect(() => {
@@ -98,12 +99,12 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
     };
 
     useLayoutEffect(() => {
-        if (displayHeatmap) {
-            setLastUpdate(new Date(displayHeatmap.ts));
+        if (deferredHeatmap) {
+            setLastUpdate(new Date(deferredHeatmap.ts));
         }
         const canvas = canvasRef.current;
         const container = containerRef.current;
-        if (!canvas || !container || !displayHeatmap || displayHeatmap.cells.length === 0) return;
+        if (!canvas || !container || !deferredHeatmap || deferredHeatmap.cells.length === 0) return;
         if (containerSize.width === 0 || containerSize.height === 0) return;
 
         const ctx = canvas.getContext('2d');
@@ -116,7 +117,7 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
         ctx.scale(dpr, dpr);
 
         // 1. Hierarchical Data with Sector Grouping
-        const grouped = d3.group(displayHeatmap.cells, d => d.sector);
+        const grouped = d3.group(deferredHeatmap.cells, d => d.sector);
         const data = {
             name: 'root',
             children: Array.from(grouped, ([name, children]) => ({ name, children }))
@@ -166,11 +167,11 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
             const h = y1 - y0;
 
             const delta = cell.delta || 0;
-            const intensity = Math.min(1, Math.abs(delta) * 1.5);
+            const intensity = Math.min(1, Math.sqrt(Math.abs(delta) * 10));
             const baseColor = delta >= 0 ? COLORS.profit : COLORS.loss;
 
             // Semi-transparent fill based on intensity — properly handles hex, rgb, and rgba colors
-            ctx.fillStyle = toRgba(baseColor, 0.1 + intensity * 0.7);
+            ctx.fillStyle = toRgba(baseColor, 0.14 + intensity * 0.52);
             ctx.fillRect(x0, y0, w, h);
 
             // Cell Border
@@ -204,7 +205,7 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
     // 3. Mouse Tracking Utility
     (canvas as any)._root = root; // Attach root for hit testing
 
-  }, [displayHeatmap, containerSize]);
+  }, [deferredHeatmap, containerSize]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -250,7 +251,7 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {displayHeatmap?.cells.map(cell => (
+                    {deferredHeatmap?.cells.map(cell => (
                         <tr key={cell.sym}>
                             <td>{cell.sym}</td>
                             <td>{cell.sector}</td>
@@ -262,7 +263,7 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
             </table>
         </div>
 
-        {!displayHeatmap && (
+        {!deferredHeatmap && (
              <div className="flex items-center justify-center h-full text-zinc-800 text-xs italic">
                 Quantifying market dynamic...
              </div>
@@ -308,11 +309,11 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
         )}
 
         {/* Data Table Fallback (keyboard accessible) */}
-        {displayHeatmap && displayHeatmap.cells.length > 0 && (
+        {deferredHeatmap && deferredHeatmap.cells.length > 0 && (
             <DataTableFallback
                 title="Market Heatmap"
                 headers={['Symbol', 'Sector', 'Delta', 'Volume']}
-                rows={displayHeatmap.cells.map(c => [
+                rows={deferredHeatmap.cells.map(c => [
                     c.sym,
                     c.sector,
                     `${(c.delta * 100).toFixed(2)}%`,

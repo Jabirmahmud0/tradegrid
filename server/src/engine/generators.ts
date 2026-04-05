@@ -78,7 +78,6 @@ export class DataGenerator {
     const events: CandleEvent[] = [];
 
     for (const interval of this.INTERVALS) {
-      const intervalKey = `${symbol}-${interval.key}`;
       const lastOpenTime = this.intervalOpenTime.get(symbol)?.get(interval.key) || 0;
       const isNewCandle = now - lastOpenTime >= interval.durationMs;
 
@@ -107,7 +106,6 @@ export class DataGenerator {
         state = { o: state.c, h: price, l: price, c: price, v: 0 };
         this.intervalOpenTime.get(symbol)!.set(interval.key, now);
         this.intervalCandles.get(symbol)!.set(interval.key, state);
-        continue;
       }
 
       if (!state) {
@@ -125,29 +123,24 @@ export class DataGenerator {
       }
 
       state.v = Number(state.v) + Math.random() * 10;
-    }
-
-    // Also emit the current 1m candle as the "updating" candle for real-time display
-    const oneMState = this.intervalCandles.get(symbol)?.get('1m');
-    const oneMOpenTime = this.intervalOpenTime.get(symbol)?.get('1m') || now;
-    if (oneMState) {
+      const currentOpenTime = this.intervalOpenTime.get(symbol)?.get(interval.key) || now;
       const updatingCandle: CandleEvent = {
         e: 'candle',
         E: now,
         s: symbol,
-        interval: '1m',
+        interval: interval.key,
         k: {
-          o: oneMState.o.toFixed(2),
-          h: oneMState.h.toFixed(2),
-          l: oneMState.l.toFixed(2),
-          c: oneMState.c.toFixed(2),
-          v: Number(oneMState.v).toFixed(4),
+          o: state.o.toFixed(2),
+          h: state.h.toFixed(2),
+          l: state.l.toFixed(2),
+          c: state.c.toFixed(2),
+          v: Number(state.v).toFixed(4),
           x: false,
-          T: oneMOpenTime
+          T: currentOpenTime
         }
       };
-      // Replace any existing open 1m candle in the events array
-      const existingIdx = events.findIndex(e => e.interval === '1m' && !e.k.x);
+
+      const existingIdx = events.findIndex(e => e.interval === interval.key && !e.k.x);
       if (existingIdx >= 0) {
         events[existingIdx] = updatingCandle;
       } else {

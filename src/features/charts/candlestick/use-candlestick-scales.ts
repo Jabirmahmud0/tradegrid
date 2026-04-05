@@ -22,6 +22,20 @@ export interface CandlestickScales {
   timeLabels: { x: number; label: string }[];
 }
 
+function quantile(sorted: number[], q: number): number {
+  if (sorted.length === 0) return 0;
+  if (sorted.length === 1) return sorted[0];
+
+  const position = (sorted.length - 1) * q;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+
+  if (lower === upper) return sorted[lower];
+
+  const weight = position - lower;
+  return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+}
+
 /**
  * Round a price to a "nice" number for display on the axis.
  * e.g., 50237.15 → 50240, 1.234 → 1.23
@@ -53,15 +67,29 @@ export const useCandlestickScales = (
       };
     }
 
-    let minPrice = Infinity;
-    let maxPrice = -Infinity;
     let maxVolume = 0;
+    const lows: number[] = [];
+    const highs: number[] = [];
+    let bodyMin = Infinity;
+    let bodyMax = -Infinity;
 
     candles.forEach((c) => {
-      if (c.h > maxPrice) maxPrice = c.h;
-      if (c.l < minPrice) minPrice = c.l;
+      lows.push(c.l);
+      highs.push(c.h);
+      bodyMin = Math.min(bodyMin, c.o, c.c);
+      bodyMax = Math.max(bodyMax, c.o, c.c);
       if (c.v > maxVolume) maxVolume = c.v;
     });
+
+    lows.sort((a, b) => a - b);
+    highs.sort((a, b) => a - b);
+
+    const trimQuantile = candles.length >= 40 ? 0.04 : candles.length >= 20 ? 0.02 : 0;
+    const trimmedLow = trimQuantile > 0 ? quantile(lows, trimQuantile) : lows[0];
+    const trimmedHigh = trimQuantile > 0 ? quantile(highs, 1 - trimQuantile) : highs[highs.length - 1];
+
+    let minPrice = Math.min(bodyMin, trimmedLow);
+    let maxPrice = Math.max(bodyMax, trimmedHigh);
 
     const rawRange = maxPrice - minPrice;
     const midpoint = (maxPrice + minPrice) / 2;
@@ -84,8 +112,11 @@ export const useCandlestickScales = (
     const candleWidth = Math.max(1, chartWidth / candles.length - gap);
 
     const getX = (index: number) => box.margin.left + index * (candleWidth + gap);
-    const getY = (price: number) =>
-      box.margin.top + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
+    const getY = (price: number) => {
+      const normalized = (price - minPrice) / priceRange;
+      const clamped = Math.max(-0.08, Math.min(1.08, normalized));
+      return box.margin.top + chartHeight - clamped * chartHeight;
+    };
     const getVolumeY = (volume: number) =>
         box.margin.top + chartHeight - (volume / maxVolume) * chartHeight * volumeRatio;
 
