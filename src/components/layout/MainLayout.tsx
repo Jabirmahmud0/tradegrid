@@ -18,10 +18,18 @@ export const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-black text-zinc-100 overflow-hidden font-sans selection:bg-blue-500/30">
+      {/* Skip Navigation Link for Keyboard Users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-[var(--color-bg-elevated)] focus:text-[var(--color-text-primary)] focus:px-3 focus:py-2 focus:rounded focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <TopBar />
-        <main className="flex-1 overflow-hidden relative">
+        <main id="main-content" className="flex-1 overflow-hidden relative" tabIndex={-1} role="main">
           <Page />
         </main>
       </div>

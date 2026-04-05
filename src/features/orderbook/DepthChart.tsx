@@ -4,6 +4,7 @@ import { DepthCanvas } from './DepthCanvas';
 import { DepthOverlay } from './DepthOverlay';
 import { useDepthScales } from './use-depth-scales';
 import { OrderBookLevel } from '../../store/live-store/orderbook.slice';
+import { DataTableFallback } from '../../components/common/DataTableFallback';
 
 interface DepthChartProps {
   className?: string;
@@ -97,6 +98,18 @@ export const DepthChart: React.FC<DepthChartProps> = ({ className, symbol }) => 
             onMouseMove={setActiveLevel}
           />
         </>
+      )}
+
+      {/* Data Table Fallback (keyboard accessible) */}
+      {orderbook && (bids.length > 0 || asks.length > 0) && (
+        <DataTableFallback
+          title={`${symbol} Depth`}
+          headers={['Price', 'Total Volume', 'Type']}
+          rows={[
+            ...bids.slice(0, 20).map(b => [b.price, b.total, 'Bid']),
+            ...asks.slice(0, 20).map(a => [a.price, a.total, 'Ask']),
+          ]}
+        />
       )}
 
       {/* Symbol Overlay */}

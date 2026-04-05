@@ -2,6 +2,7 @@ import React, { useRef, useLayoutEffect, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { useLiveStore } from '../../store/live-store';
 import { cn } from '../../utils';
+import { DataTableFallback } from '../../components/common/DataTableFallback';
 
 interface MarketHeatmapProps {
   className?: string;
@@ -231,6 +232,20 @@ export const MarketHeatmap: React.FC<MarketHeatmapProps> = ({ className }) => {
                     Live
                 </span>
             </div>
+        )}
+
+        {/* Data Table Fallback (keyboard accessible) */}
+        {heatmap && heatmap.cells.length > 0 && (
+            <DataTableFallback
+                title="Market Heatmap"
+                headers={['Symbol', 'Sector', 'Delta', 'Volume']}
+                rows={heatmap.cells.map(c => [
+                    c.sym,
+                    c.sector,
+                    `${(c.delta * 100).toFixed(2)}%`,
+                    c.vol.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                ])}
+            />
         )}
     </div>
   );

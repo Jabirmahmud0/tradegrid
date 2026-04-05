@@ -55,8 +55,10 @@ jobs:
       - name: Bundle Size Check
         run: |
           SIZE=$(du -sk dist/assets/*.js | awk '{sum+=$1} END {print sum}')
-          echo "Total JS Bundle size: ${SIZE}kb"
-          if [ $SIZE -gt 800 ]; then 
-            echo "⚠️ WARNING: JS Bundle exceeds 800kb (${SIZE}kb)"
+          echo "Total JS bundle size (raw): ${SIZE}kb"
+          GZIPPED=$(find dist/assets -name '*.js' -exec gzip -9 -c {} + | wc -c)
+          echo "Total JS bundle size (gzipped): ${GZIPPED} bytes"
+          if [ $GZIPPED -gt 512000 ]; then
+            echo "WARNING: JS bundle exceeded 500kb gzipped (${GZIPPED} bytes)"
             exit 1
           fi

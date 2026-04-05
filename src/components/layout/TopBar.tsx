@@ -6,6 +6,7 @@ import { Badge } from '../common/Badge';
 import { StatusIndicator } from '../common/StatusIndicator';
 import { Button } from '../ui/Button';
 import { marketClient, DataSourceType } from '../../services/market-client';
+import { useSymbols, useServerStatus } from '../../services/market-data.queries';
 import { cn } from '../../utils';
 
 export const TopBar: React.FC = () => {
@@ -14,16 +15,22 @@ export const TopBar: React.FC = () => {
   const systemReady = useLiveStore((state) => state.systemReady);
   const metrics = useLiveStore((state) => state.metrics);
   const stats = useLiveStore((state) => state.stats[activeSymbol]);
-  
+
+  // HTTP-fetched metadata via TanStack Query (not streaming state)
+  const { data: symbolsMeta } = useSymbols();
+  const { data: serverStatus } = useServerStatus();
+
   const [symbolDropdownOpen, setSymbolDropdownOpen] = React.useState(false);
   const [intervalDropdownOpen, setIntervalDropdownOpen] = React.useState(false);
   const [dataSourceOpen, setDataSourceOpen] = React.useState(false);
   const [currentSource, setCurrentSource] = React.useState<DataSourceType>('mock');
-  
+
   // Real system cores
   const cores = React.useMemo(() => typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4, []);
 
-  const symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 'AVAX-USD', 'ADA-USD', 'MATIC-USD', 'LINK-USD'];
+  // Fallback symbols if HTTP fetch hasn't completed
+  const FALLBACK_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD', 'AVAX-USD', 'ADA-USD', 'MATIC-USD', 'LINK-USD'];
+  const symbolList = symbolsMeta?.map(s => s.symbol) ?? FALLBACK_SYMBOLS;
   const intervals = ['1m', '5m', '15m', '1h', '1D'];
 
   const setActiveSymbol = useLiveStore((state) => state.setActiveSymbol);
@@ -63,28 +70,47 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <header className="h-12 border-b border-zinc-900 bg-zinc-950 flex items-center px-4 gap-6 shrink-0 relative z-10">
+    <header className="h-12 border-b border-zinc-900 bg-zinc-950 flex items-center px-4 gap-6 shrink-0 relative z-10" role="banner">
       {/* Symbol Selector */}
       <div className="relative flex items-center gap-2 pr-4 border-r border-zinc-900 h-8">
         <div className="flex flex-col">
-          <span className="text-[10px] text-zinc-500 font-bold uppercase leading-none mb-0.5">Symbol</span>
-          <div 
-            className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors"
+          <span id="symbol-label" className="text-[10px] text-zinc-500 font-bold uppercase leading-none mb-0.5">Symbol</span>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={symbolDropdownOpen}
+            aria-haspopup="listbox"
+            aria-controls="symbol-listbox"
+            aria-labelledby="symbol-label"
+            className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
             onClick={() => { setSymbolDropdownOpen(!symbolDropdownOpen); setIntervalDropdownOpen(false); setDataSourceOpen(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSymbolDropdownOpen(!symbolDropdownOpen); }
+              if (e.key === 'Escape') setSymbolDropdownOpen(false);
+            }}
           >
             <span className="text-sm font-black tracking-tight text-zinc-100">{activeSymbol}</span>
-            <ChevronDown className="w-3 h-3 text-zinc-500" />
-          </div>
+            <ChevronDown className="w-3 h-3 text-zinc-500" aria-hidden />
+          </button>
         </div>
         {symbolDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setSymbolDropdownOpen(false)} />
-              <div className="absolute left-0 top-10 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden py-2">
-                 {symbols.map(s => (
-                   <div 
-                      key={s} 
-                      className={cn("px-4 py-2 text-sm font-bold cursor-pointer hover:bg-zinc-800", activeSymbol === s ? "text-emerald-400" : "text-zinc-300")}
+              <div
+                id="symbol-listbox"
+                role="listbox"
+                aria-label="Select trading symbol"
+                className="absolute left-0 top-10 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden py-2"
+              >
+                 {symbolList.map(s => (
+                   <div
+                      key={s}
+                      role="option"
+                      aria-selected={activeSymbol === s}
+                      tabIndex={0}
+                      className={cn("px-4 py-2 text-sm font-bold cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]", activeSymbol === s ? "text-emerald-400" : "text-zinc-300")}
                       onClick={() => { setActiveSymbol(s); setSymbolDropdownOpen(false); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { setActiveSymbol(s); setSymbolDropdownOpen(false); } }}
                    >
                      {s}
                    </div>
@@ -97,24 +123,43 @@ export const TopBar: React.FC = () => {
       {/* Interval Selector */}
       <div className="relative flex items-center gap-2 pr-4 border-r border-zinc-900 h-8">
         <div className="flex flex-col">
-          <span className="text-[10px] text-zinc-500 font-bold uppercase leading-none mb-0.5">Interval</span>
-          <div 
-             className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors"
-             onClick={() => { setIntervalDropdownOpen(!intervalDropdownOpen); setSymbolDropdownOpen(false); setDataSourceOpen(false); }}
+          <span id="interval-label" className="text-[10px] text-zinc-500 font-bold uppercase leading-none mb-0.5">Interval</span>
+          <button
+            type="button"
+            role="combobox"
+            aria-expanded={intervalDropdownOpen}
+            aria-haspopup="listbox"
+            aria-controls="interval-listbox"
+            aria-labelledby="interval-label"
+            className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            onClick={() => { setIntervalDropdownOpen(!intervalDropdownOpen); setSymbolDropdownOpen(false); setDataSourceOpen(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIntervalDropdownOpen(!intervalDropdownOpen); }
+              if (e.key === 'Escape') setIntervalDropdownOpen(false);
+            }}
           >
             <span className="text-xs font-bold text-zinc-300">{activeInterval}</span>
-            <ChevronDown className="w-3 h-3 text-zinc-500" />
-          </div>
+            <ChevronDown className="w-3 h-3 text-zinc-500" aria-hidden />
+          </button>
         </div>
         {intervalDropdownOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIntervalDropdownOpen(false)} />
-              <div className="absolute left-0 top-10 w-24 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden py-2">
+              <div
+                id="interval-listbox"
+                role="listbox"
+                aria-label="Select candle interval"
+                className="absolute left-0 top-10 w-24 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden py-2"
+              >
                  {intervals.map(i => (
-                   <div 
-                      key={i} 
-                      className={cn("px-4 py-2 text-xs font-bold cursor-pointer hover:bg-zinc-800", activeInterval === i as any ? "text-emerald-400" : "text-zinc-300")}
+                   <div
+                      key={i}
+                      role="option"
+                      aria-selected={activeInterval === i}
+                      tabIndex={0}
+                      className={cn("px-4 py-2 text-xs font-bold cursor-pointer hover:bg-zinc-800 focus:bg-zinc-800 focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]", activeInterval === i as any ? "text-emerald-400" : "text-zinc-300")}
                       onClick={() => { setActiveInterval(i as any); setIntervalDropdownOpen(false); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { setActiveInterval(i as any); setIntervalDropdownOpen(false); } }}
                    >
                      {i}
                    </div>
@@ -211,8 +256,8 @@ export const TopBar: React.FC = () => {
                 </div>
                 <div className="p-3 bg-zinc-950/50 border-t border-zinc-800">
                   <p className="text-[10px] text-zinc-500">
-                    {currentSource === 'mock' 
-                      ? 'Using simulated market data' 
+                    {currentSource === 'mock'
+                      ? `Using simulated market data${serverStatus ? ` — ${serverStatus.clients} client(s), ${serverStatus.bufferSize} buffered` : ''}`
                       : 'Connected to live data stream'}
                   </p>
                 </div>

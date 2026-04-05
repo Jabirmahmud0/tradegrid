@@ -5,6 +5,7 @@ import { CandlestickCanvas } from './CandlestickCanvas';
 import { CandlestickOverlay } from './CandlestickOverlay';
 import { useCandlestickScales, Box } from './use-candlestick-scales';
 import { ChartAriaOverlay } from './ChartAriaOverlay';
+import { DataTableFallback } from '../../../components/common/DataTableFallback';
 import { useLiveStore } from '../../../store/live-store';
 import { EmptyState } from '../../../components/common/EmptyState';
 
@@ -155,13 +156,29 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({ candles, cla
       </div>
 
       {/* 6. Accessibility Overlay */}
-      <ChartAriaOverlay 
-          candles={visibleCandles} 
-          symbol="CURRENT" 
-          interval={activeInterval} 
+      <ChartAriaOverlay
+          candles={visibleCandles}
+          symbol="CURRENT"
+          interval={activeInterval}
       />
 
-      {/* 7. Interaction Hints */}
+      {/* 7. Data Table Fallback (keyboard accessible) */}
+      {visibleCandles.length > 0 && (
+        <DataTableFallback
+          title={`${"CURRENT"} OHLCV`}
+          headers={['Time', 'Open', 'High', 'Low', 'Close', 'Volume']}
+          rows={visibleCandles.slice(-50).map(c => [
+            new Date(c.ts).toLocaleString(),
+            c.o.toFixed(2),
+            c.h.toFixed(2),
+            c.l.toFixed(2),
+            c.c.toFixed(2),
+            c.v.toFixed(2)
+          ])}
+        />
+      )}
+
+      {/* 8. Interaction Hints */}
       <div className="absolute bottom-1 right-2 text-[9px] font-mono text-zinc-600 pointer-events-none uppercase">
           Wheel: Zoom • Drag: Pan • {visibleCount} Bars
       </div>

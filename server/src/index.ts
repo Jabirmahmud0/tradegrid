@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import { MarketSimulator } from './engine/simulation.js';
 import { DataGenerator } from './engine/generators.js';
-import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, ScenarioState } from './engine/scenarios.js';
+import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, MALFORMED_SCENARIO, ScenarioState } from './engine/scenarios.js';
 import { HeatmapGenerator } from './engine/heatmap.js';
 
 const PORT = 4000;
@@ -33,7 +33,8 @@ app.get('/status', (req, res) => {
         uptime: process.uptime(),
         clients: clients.size,
         bufferSize: historicalBuffer.length,
-        currentScenario: currentScenario.mode
+        currentScenario: currentScenario.mode,
+        malformedRate: currentScenario.malformedRate
     });
 });
 
@@ -160,13 +161,16 @@ function handleMessage(client: Client, message: any) {
 }
 
 function handleScenarioChange(mode: string) {
-  isReplaying = false; 
+  isReplaying = false;
   switch (mode) {
     case 'BURST':
       currentScenario = { ...BURST_SCENARIO };
       break;
     case 'FAILURE':
       currentScenario = { ...FAILURE_SCENARIO };
+      break;
+    case 'MALFORMED':
+      currentScenario = { ...MALFORMED_SCENARIO };
       break;
     default:
       currentScenario = { ...DEFAULT_SCENARIO };
@@ -229,11 +233,33 @@ function broadcast(symbol: string, event: any, isReplay = false) {
     return;
   }
 
-  const binaryData = encode(event);
-  
+  // Malformed payload simulation: intentionally corrupt the event
+  let payload: Uint8Array;
+  if (!isReplay && currentScenario.mode === 'MALFORMED' && Math.random() < currentScenario.malformedRate) {
+    const corruptionType = Math.random();
+    if (corruptionType < 0.25) {
+      // Truncated binary (partial MessagePack)
+      const full = encode(event);
+      payload = full.slice(0, Math.max(1, Math.floor(full.length * 0.5)));
+    } else if (corruptionType < 0.5) {
+      // Random garbage bytes
+      const len = Math.floor(Math.random() * 50) + 5;
+      payload = new Uint8Array(len);
+      crypto.getRandomValues(payload as any);
+    } else if (corruptionType < 0.75) {
+      // Invalid JSON string (instead of MessagePack)
+      payload = new TextEncoder().encode(`{"invalid":true,"type":"__corrupted__","data":null,}`);
+    } else {
+      // Empty payload
+      payload = new Uint8Array(0);
+    }
+  } else {
+    payload = encode(event);
+  }
+
   clients.forEach(client => {
     if (client.subscriptions.has(symbol) && client.ws.readyState === WebSocket.OPEN) {
-      client.ws.send(binaryData);
+      client.ws.send(payload);
     }
   });
 }
