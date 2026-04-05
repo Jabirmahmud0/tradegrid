@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
 import { createTradesSlice, TradesSlice } from './trades.slice';
 import { createCandlesSlice, CandlesSlice } from './candles.slice';
 import { createOrderBookSlice, OrderBookSlice } from './orderbook.slice';
@@ -9,25 +10,45 @@ import { createReplaySlice, ReplaySlice } from './replay.slice';
 import { createDebugSlice, DebugSlice } from './debug.slice';
 import { createMarketStatsSlice, MarketStatsSlice } from './market-stats.slice';
 
-export interface RootState 
-  extends TradesSlice, 
-          CandlesSlice, 
-          OrderBookSlice, 
-          HeatmapSlice, 
-          LayoutSlice, 
-          ThemeSlice, 
-          ReplaySlice, 
+export interface RootState
+  extends TradesSlice,
+          CandlesSlice,
+          OrderBookSlice,
+          HeatmapSlice,
+          LayoutSlice,
+          ThemeSlice,
+          ReplaySlice,
           MarketStatsSlice,
-          DebugSlice {}
+          DebugSlice {
+  /** Clear all market data (trades, candles, orderbook, heatmap, stats) */
+  clearAllData: () => void;
+}
 
-export const useLiveStore = create<RootState>()((...a) => ({
-  ...createTradesSlice(...a),
-  ...createCandlesSlice(...a),
-  ...createOrderBookSlice(...a),
-  ...createHeatmapSlice(...a),
-  ...createLayoutSlice(...a),
-  ...createThemeSlice(...a),
-  ...createReplaySlice(...a),
-  ...createDebugSlice(...a),
-  ...createMarketStatsSlice(...a),
-}));
+export const useLiveStore = create<RootState>()(
+  devtools(
+    (...a) => ({
+      ...createTradesSlice(...a),
+      ...createCandlesSlice(...a),
+      ...createOrderBookSlice(...a),
+      ...createHeatmapSlice(...a),
+      ...createLayoutSlice(...a),
+      ...createThemeSlice(...a),
+      ...createReplaySlice(...a),
+      ...createDebugSlice(...a),
+      ...createMarketStatsSlice(...a),
+      clearAllData: () =>
+        a[0]({
+          ...createTradesSlice(...a).clearTrades(),
+          ...createCandlesSlice(...a).clearAllCandles(),
+          books: {},
+          heatmap: null,
+          stats: {},
+        }),
+    }),
+    {
+      name: 'TradeGrid Store',
+      // Only enable devtools in development
+      enabled: import.meta.env.DEV,
+    }
+  )
+);

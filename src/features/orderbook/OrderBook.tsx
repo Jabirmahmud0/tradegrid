@@ -9,29 +9,34 @@ interface OrderBookProps {
   className?: string;
 }
 
-const LevelRow: React.FC<{ 
-    price: number; 
-    size: number; 
-    total: number; 
-    maxTotal: number; 
+const LevelRow: React.FC<{
+    price: number;
+    size: number;
+    total: number;
+    maxTotal: number;
     type: 'bid' | 'ask';
     virtualRow: any;
-}> = ({ price, size, total, maxTotal, type, virtualRow }) => {
+    prevSizes: React.MutableRefObject<Map<number, number>>;
+}> = ({ price, size, total, maxTotal, type, virtualRow, prevSizes }) => {
     const isBid = type === 'bid';
     const percentage = (total / maxTotal) * 100;
-    
-    // Delta Highlighting
-    const prevSize = useRef(size);
+
+    // Delta Highlighting — use a global map keyed by price instead of per-row ref
+    // because virtualized rows are recreated, losing ref state.
+    const prevSize = prevSizes.current.get(price);
     const [flash, setFlash] = useState(false);
 
     useEffect(() => {
-        if (size !== prevSize.current) {
+        if (prevSize !== undefined && size !== prevSize) {
             setFlash(true);
             const timer = setTimeout(() => setFlash(false), 500);
-            prevSize.current = size;
+            prevSizes.current.set(price, size);
             return () => clearTimeout(timer);
+        } else if (prevSize === undefined) {
+            // First render — just record the size without flashing
+            prevSizes.current.set(price, size);
         }
-    }, [size]);
+    }, [size, price, prevSize, prevSizes]);
 
     return (
         <div 
@@ -69,10 +74,22 @@ const LevelRow: React.FC<{
 };
 
 export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
-  const book = useLiveStore(state => state.books[symbol]);
-  
+  const rawBook = useLiveStore(state => state.books[symbol]);
+  const lastTradePrice = useLiveStore(state => state.trades[0]?.px ?? null);
+
+  // Depth limiting: show top 50 levels max (L3)
+  const MAX_LEVELS = 50;
+  const book = rawBook ? {
+    ...rawBook,
+    bids: rawBook.bids.slice(0, MAX_LEVELS),
+    asks: rawBook.asks.slice(0, MAX_LEVELS),
+  } : null;
+
   const askParentRef = useRef<HTMLDivElement>(null);
   const bidParentRef = useRef<HTMLDivElement>(null);
+
+  // Shared prevSizes map for flash effect persistence across virtualized row recreation
+  const prevSizes = useRef<Map<number, number>>(new Map());
 
   const maxTotal = useMemo(() => {
     if (!book) return 0;
@@ -130,12 +147,13 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
           }}
         >
           {askVirtualizer.getVirtualItems().map((vRow) => (
-            <LevelRow 
-                key={book.asks[vRow.index].price} 
-                {...book.asks[vRow.index]} 
-                maxTotal={maxTotal} 
-                type="ask" 
+            <LevelRow
+                key={book.asks[vRow.index].price}
+                {...book.asks[vRow.index]}
+                maxTotal={maxTotal}
+                type="ask"
                 virtualRow={vRow}
+                prevSizes={prevSizes}
             />
           ))}
         </div>
@@ -146,7 +164,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
         <div className="flex flex-col">
             <span className={cn(
                 "text-base lg:text-lg font-bold leading-none",
-                book.asks[0]?.price > (useLiveStore.getState().trades[0]?.px || 0) ? "text-[var(--color-profit)]" : "text-[var(--color-loss)]"
+                book.asks[0]?.price > (lastTradePrice ?? 0) ? "text-[var(--color-profit)]" : "text-[var(--color-loss)]"
             )}>
                 {bestAsk > 0 ? ((bestAsk + bestBid) / 2).toLocaleString(undefined, { minimumFractionDigits: 2 }) : "---"}
             </span>
@@ -170,12 +188,13 @@ export const OrderBook: React.FC<OrderBookProps> = ({ symbol, className }) => {
           }}
         >
           {bidVirtualizer.getVirtualItems().map((vRow) => (
-            <LevelRow 
-                key={book.bids[vRow.index].price} 
-                {...book.bids[vRow.index]} 
-                maxTotal={maxTotal} 
+            <LevelRow
+                key={book.bids[vRow.index].price}
+                {...book.bids[vRow.index]}
+                maxTotal={maxTotal}
                 type="bid"
                 virtualRow={vRow}
+                prevSizes={prevSizes}
             />
           ))}
         </div>

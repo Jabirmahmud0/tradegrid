@@ -13,9 +13,13 @@ let flushTimer: any = null;
 const FLUSH_INTERVAL_MS = 16; // ~60fps coalescing
 
 // Track current connection type and symbols
-let currentSourceType: 'mock' | 'binance' | 'custom' = 'mock';
+let currentSourceType: 'mock' | 'binance' | 'binance-testnet' | 'custom' = 'mock';
 let currentSymbols: string[] = [];
 let currentUrl: string | null = null;
+
+function isBinanceSource(sourceType: typeof currentSourceType) {
+  return sourceType.startsWith('binance');
+}
 
 ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
   const msg = event.data;
@@ -30,11 +34,14 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
 
       if (wsManager) wsManager.disconnect();
 
-      // Detect source type from URL
       const url = msg.payload.url;
-      if (url.includes('binance')) {
+      currentSymbols = msg.payload.symbols ?? currentSymbols;
+
+      // Use explicit source type from main thread if provided, otherwise detect from URL
+      if (msg.payload.sourceType) {
+        currentSourceType = msg.payload.sourceType as any;
+      } else if (url.includes('binance')) {
         currentSourceType = 'binance';
-        console.log('[Worker] Detected Binance connection (includes testnet):', url);
       } else if (url.includes('localhost')) {
         currentSourceType = 'mock';
       } else {
@@ -48,11 +55,20 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
         url: url,
         onStatusChange: (status) => {
           if (status === 'open') {
+            if (!isBinanceSource(currentSourceType) && currentSymbols.length > 0) {
+              wsManager?.send(JSON.stringify({ type: 'subscribe', symbols: currentSymbols }));
+            }
             ctx.postMessage({ type: 'CONNECTED', payload: { sourceType: currentSourceType } } as WorkerMessage);
             startFlushLoop();
           } else if (status === 'closed') {
             currentUrl = null; // Reset URL on disconnect
             ctx.postMessage({ type: 'DISCONNECTED' } as WorkerMessage);
+            stopFlushLoop();
+          } else if (status === 'error') {
+            ctx.postMessage({
+              type: 'CONNECTION_ERROR',
+              payload: { sourceType: currentSourceType, url: currentUrl }
+            } as WorkerMessage);
             stopFlushLoop();
           }
         },
@@ -60,17 +76,24 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
           handleData(data);
         },
         onError: (err) => {
+          const message = typeof err === 'string' ? err : 'WebSocket error event';
+          console.error('[Worker] Connection error:', message);
           ctx.postMessage({
             type: 'ERROR',
-            payload: { 
-              message: 'WebSocket encountered an error',
-              url: msg.payload.url,
-              errorType: err.type,
-              isTrusted: err.isTrusted
+            payload: {
+              message,
+              url: currentUrl,
+              sourceType: currentSourceType
             }
           } as WorkerMessage);
         },
-        reconnectOptions: msg.payload.reconnectOptions
+        reconnectOptions: {
+          maxRetries: 3, // Limit retries (don't loop forever on bad connections)
+          initialDelay: 1000,
+          maxDelay: 5000,
+          connectionTimeout: 10000, // 10s timeout
+          ...msg.payload.reconnectOptions
+        }
       });
       wsManager.connect();
       break;
@@ -78,7 +101,7 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
     case 'SUBSCRIBE':
       currentSymbols = msg.payload.symbols;
 
-      if (currentSourceType === 'binance') {
+      if (isBinanceSource(currentSourceType)) {
         // For Binance with /stream endpoint, no subscription needed - streams are in URL
         // Just log the symbols for reference
         console.log('[Worker] Binance streams active for:', currentSymbols);
@@ -89,7 +112,7 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
       break;
 
     case 'UNSUBSCRIBE':
-      if (currentSourceType === 'binance') {
+      if (isBinanceSource(currentSourceType)) {
         // Binance /stream endpoint doesn't support unsubscribe - reconnect needed
         console.log('[Worker] Binance: unsubscribe not supported, reconnect to change streams');
       } else {
@@ -99,7 +122,7 @@ ctx.onmessage = (event: MessageEvent<MainThreadMessage>) => {
 
     case 'CONTROL_COMMAND':
       // Don't send control commands (ping, etc.) to Binance - it doesn't understand them
-      if (currentSourceType !== 'binance') {
+      if (!isBinanceSource(currentSourceType)) {
         wsManager?.send(JSON.stringify(msg.payload));
       } else {
         // For Binance, just respond with pong locally without sending to server
@@ -132,7 +155,7 @@ function handleData(data: ArrayBuffer | string) {
   
   if (!parsed) return;
 
-  if (currentSourceType === 'binance' || (typeof data === 'string' && parsed.type)) {
+  if (isBinanceSource(currentSourceType) || (typeof data === 'string' && parsed.type)) {
     // Check if it's a Binance market data event (unwrapped format)
     if (parsed.e === 'trade' || parsed.e === 'kline') {
       const normalized = normalizeEvent(parsed);

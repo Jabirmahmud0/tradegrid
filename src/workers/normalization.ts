@@ -107,10 +107,9 @@ export function normalizeEvent(raw: any): StreamEvent | null {
   // Handle Binance depth update (no 'e' field, has lastUpdateId)
   if (raw.lastUpdateId && raw.bids && raw.asks) {
     const depth = raw as BinanceDepthEvent;
-    // Extract symbol from stream info or use default
     return {
       t: 'book',
-      sym: 'BTC-USD', // Will be set by worker based on subscription
+      sym: raw.sym ? fromBinanceSymbol(raw.sym) : 'BTC-USD',
       bids: depth.bids.map(([p, s]) => [parseFloat(p), parseFloat(s)] as [number, number]),
       asks: depth.asks.map(([p, s]) => [parseFloat(p), parseFloat(s)] as [number, number]),
       ts: Date.now()
@@ -150,16 +149,19 @@ export function normalizeEvent(raw: any): StreamEvent | null {
       const o = parseFloat(rawCandle.k.o);
       const c = parseFloat(rawCandle.k.c);
 
+      // Extract interval from server event if available, otherwise default to '1m'
+      const interval = ('interval' in raw && raw.interval) || '1m';
+
       return {
         t: 'candle',
         sym: rawCandle.s,
-        interval: '1m',
+        interval,
         o,
         h: parseFloat(rawCandle.k.h),
         l: parseFloat(rawCandle.k.l),
         c,
         v: parseFloat(rawCandle.k.v),
-        ts: rawCandle.k.T, // canonical candle open time, not event emission time
+        ts: rawCandle.k.T,
         isUp: c >= o,
         changePercent: ((c - o) / o) * 100
       } as NormalizedCandle;

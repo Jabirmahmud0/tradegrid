@@ -14,9 +14,12 @@ export interface ConnectOptions {
 class MarketClient {
   private worker: Worker | null = null;
   private currentSourceType: DataSourceType = 'mock';
+  private pendingSourceType: DataSourceType | null = null; // Tracks in-flight connection
+  private previousSourceType: DataSourceType | null = null; // For rollback on failure
   private currentSymbols: string[] = [];
   private isConnected = false;
   private isConnecting = false;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Latency tracking (RTT)
   private pingInterval: any = null;
@@ -26,6 +29,8 @@ class MarketClient {
     if (typeof window !== 'undefined') {
       this.initWorker();
       this.startLatencyMonitor();
+      // Initialize from store on mount
+      this.currentSourceType = useLiveStore.getState().dataSource;
     }
   }
 
@@ -41,14 +46,38 @@ class MarketClient {
         case 'CONNECTED':
           this.isConnected = true;
           this.isConnecting = false;
+          // Sync the actual source type from worker back to store
+          const actualSource = (payload?.sourceType || this.pendingSourceType || this.currentSourceType) as DataSourceType;
+          this.currentSourceType = actualSource;
+          this.pendingSourceType = null;
+          this.previousSourceType = null;
+          useLiveStore.getState().setDataSource(actualSource);
           console.log('[MarketClient] Connected to', this.currentSourceType);
           break;
         case 'DISCONNECTED':
           this.isConnected = false;
           this.isConnecting = false;
+          rafFlushController.stop();
           console.log('[MarketClient] Disconnected');
           break;
+        case 'CONNECTION_ERROR':
+          // Connection failed — revert to previous source
+          console.error('[MarketClient] Connection error, reverting to previous source');
+          this.isConnected = false;
+          this.isConnecting = false;
+          rafFlushController.stop();
+          if (this.previousSourceType) {
+            this.currentSourceType = this.previousSourceType;
+            useLiveStore.getState().setDataSource(this.previousSourceType);
+            console.log('[MarketClient] Reverted to', this.previousSourceType);
+          }
+          this.pendingSourceType = null;
+          this.previousSourceType = null;
+          break;
         case 'BATCH_DATA':
+          if (this.isConnecting) {
+            return;
+          }
           this.handleBatchData(payload as StreamEvent[], metrics);
           break;
         case 'CONTROL':
@@ -59,36 +88,59 @@ class MarketClient {
           break;
         case 'ERROR':
           this.isConnecting = false;
+          rafFlushController.stop();
           console.error('[MarketClient] Error:', payload);
+          // On error, revert to previous source if pending
+          if (this.pendingSourceType && this.previousSourceType) {
+            this.currentSourceType = this.previousSourceType;
+            useLiveStore.getState().setDataSource(this.previousSourceType);
+          }
+          this.pendingSourceType = null;
+          this.previousSourceType = null;
           break;
       }
     };
   }
 
   /**
-   * Connect to a data source
+   * Connect to a data source.
+   * Does NOT update the store optimistically — only after CONNECTED confirmation.
+   * On failure, automatically reverts to the previous source.
    */
   public connect(options: ConnectOptions = {}) {
     const { type = 'mock', url, symbols = [] } = options;
 
     const symbolsMatch = this.currentSymbols.join(',') === symbols.join(',');
+    const sourceChanged = this.currentSourceType !== type;
     if (this.isConnected && this.currentSourceType === type && symbolsMatch) {
       console.log('[MarketClient] Already connected to', type, '- skipping redundant connection');
       return;
     }
 
     // Prevent multiple simultaneous connection attempts unless changing symbols
-    if (this.isConnecting && symbolsMatch) {
+    if (this.isConnecting && this.pendingSourceType === type && symbolsMatch) {
       console.log('[MarketClient] Connection already in progress - skipping redundant request');
       return;
+    }
+
+    // Save previous source for rollback on failure
+    this.previousSourceType = this.currentSourceType;
+
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
     }
 
     // Disconnect from current source first
     this.disconnect();
 
-    this.currentSourceType = type;
     this.currentSymbols = symbols;
     this.isConnecting = true;
+    this.pendingSourceType = type;
+
+    if (sourceChanged) {
+      this.resetLiveMarketState();
+    }
 
     let connectionUrl: string;
     let endpoints: string[] | undefined;
@@ -115,15 +167,21 @@ class MarketClient {
         break;
     }
 
+    // Note: currentSourceType is NOT updated here — only after CONNECTED confirms.
+    // This prevents optimistic UI that shows connected when it's actually failing.
+
     // Small delay to ensure disconnect completes
-    setTimeout(() => {
+    this.connectTimer = setTimeout(() => {
       this.worker?.postMessage({
         type: 'CONNECT',
         payload: {
           url: connectionUrl,
-          reconnectOptions: { endpoints }
+          sourceType: type, // Explicit source type for worker
+          reconnectOptions: { endpoints },
+          symbols,
         }
       });
+      this.connectTimer = null;
     }, 100);
   }
 
@@ -175,6 +233,12 @@ class MarketClient {
   }
 
   public disconnect() {
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
+    this.isConnecting = false;
+    this.pendingSourceType = null;
     this.worker?.postMessage({ type: 'DISCONNECT' });
   }
 
@@ -184,6 +248,19 @@ class MarketClient {
 
   public get connected(): boolean {
     return this.isConnected;
+  }
+
+  private resetLiveMarketState() {
+    const store = useLiveStore.getState();
+    store.clearTrades();
+    store.clearAllCandles();
+    rafFlushController.stop();
+    useLiveStore.setState({
+      books: {},
+      heatmap: null,
+      stats: {},
+      systemReady: false,
+    });
   }
 
   private startLatencyMonitor() {

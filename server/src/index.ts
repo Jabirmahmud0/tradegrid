@@ -7,6 +7,7 @@ import { MarketSimulator } from './engine/simulation.js';
 import { DataGenerator } from './engine/generators.js';
 import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, MALFORMED_SCENARIO, ScenarioState } from './engine/scenarios.js';
 import { HeatmapGenerator } from './engine/heatmap.js';
+import { getSector } from './utils/sectors.js';
 
 const PORT = 4000;
 const app = express();
@@ -61,15 +62,6 @@ app.get('/history/:symbol', (req, res) => {
 app.get('/v1/replay', (req, res) => {
     res.json(historicalBuffer);
 });
-
-function getSector(sym: string): string {
-    const sectors: Record<string, string> = {
-        'BTC-USD': 'Core', 'ETH-USD': 'Core', 'SOL-USD': 'L1', 'ADA-USD': 'L1', 'DOT-USD': 'L1', 'AVAX-USD': 'L1',
-        'ARB-USD': 'L2', 'OP-USD': 'L2', 'MATIC-USD': 'L2',
-        'LINK-USD': 'DeFi', 'UNI-USD': 'DeFi'
-    };
-    return sectors[sym] || 'Misc';
-}
 
 // Websocket Logic
 const server = http.createServer(app);
@@ -201,9 +193,18 @@ function startTicker() {
         symbols.forEach(symbol => {
           const iterations = currentScenario.mode === 'BURST' ? currentScenario.burstMultiplier : 1;
           for (let i = 0; i < iterations; i++) {
-            if (Math.random() > 0.8) broadcast(symbol, generator.generateTrade(symbol));
+            if (Math.random() > 0.8) {
+              const trade = generator.generateTrade(symbol);
+              // Feed price to heatmap generator
+              heatmapGen.updatePrices(symbol, parseFloat(trade.p));
+              broadcast(symbol, trade);
+            }
             if (Date.now() % 500 < 100) broadcast(symbol, generator.generateOrderBook(symbol));
-            broadcast(symbol, generator.generateCandle(symbol));
+            // Generate candles for ALL intervals (1m, 5m, 15m, 1h, 1D)
+            const candleEvents = generator.generateCandlesForSymbol(symbol);
+            for (const candleEvent of candleEvents) {
+              broadcast(symbol, candleEvent);
+            }
           }
         });
         ticker = setTimeout(run, currentScenario.tickInterval);
@@ -269,3 +270,41 @@ startTicker();
 server.listen(PORT, () => {
   console.log(`[Server] TradeGrid Mock Stream Backend running on http/ws://localhost:${PORT}`);
 });
+
+// Graceful shutdown handling
+function gracefulShutdown(signal: string) {
+  console.log(`[Server] Received ${signal}. Shutting down gracefully...`);
+
+  // Stop the heatmap generator
+  heatmapGen.stop();
+
+  // Stop the ticker
+  if (ticker) {
+    clearTimeout(ticker);
+    ticker = null;
+  }
+
+  // Notify and close all WebSocket clients
+  const shutdownMessage = JSON.stringify({ type: 'shutdown', message: 'Server is shutting down' });
+  clients.forEach((client) => {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(shutdownMessage);
+      client.ws.close(1001, 'Server shutting down');
+    }
+  });
+
+  // Close the HTTP server (which also closes the WebSocket server)
+  server.close(() => {
+    console.log('[Server] HTTP server closed.');
+    process.exit(0);
+  });
+
+  // Force exit after 5 seconds if graceful shutdown fails
+  setTimeout(() => {
+    console.error('[Server] Forced shutdown after timeout.');
+    process.exit(1);
+  }, 5000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

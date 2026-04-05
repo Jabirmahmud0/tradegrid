@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "tsx watch src/index.ts",
-    "build": "tsc"
+    "start:prod": "node dist/index.js",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@msgpack/msgpack": "^3.0.0",
@@ -20,6 +23,7 @@
     "@types/node": "^22.10.1",
     "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.2"
   }
 }

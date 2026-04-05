@@ -1,15 +1,16 @@
-export type WebSocketStatus = 'connecting' | 'open' | 'closing' | 'closed';
+export type WebSocketStatus = 'connecting' | 'open' | 'closing' | 'closed' | 'error';
 
 export interface WebSocketManagerOptions {
   url: string;
   onMessage: (data: ArrayBuffer | string) => void;
   onStatusChange?: (status: WebSocketStatus) => void;
-  onError?: (error: Event) => void;
+  onError?: (error: Event | string) => void;
   reconnectOptions?: {
     maxRetries?: number;
     initialDelay?: number;
     maxDelay?: number;
     endpoints?: string[];
+    connectionTimeout?: number; // ms to wait before considering connection failed
   };
 }
 
@@ -22,6 +23,7 @@ export class WebSocketManager {
   private shouldClosedIntentionally = false;
   private messageQueue: (string | ArrayBuffer | Blob)[] = [];
   private currentUrl: string;
+  private connectionTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: WebSocketManagerOptions) {
     this.options = options;
@@ -32,14 +34,20 @@ export class WebSocketManager {
   public connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return;
     this.shouldClosedIntentionally = false;
+    this.currentUrl = this.url;
     this.options.onStatusChange?.('connecting');
     this.establishConnection();
   }
 
   public disconnect(): void {
     this.shouldClosedIntentionally = true;
+    this.retryCount = 0;
+    if (this.connectionTimeoutId) {
+      clearTimeout(this.connectionTimeoutId);
+      this.connectionTimeoutId = null;
+    }
     if (this.ws) {
-      this.ws.close();
+      this.ws.close(1000, 'Client disconnected');
       this.ws = null;
     }
   }
@@ -53,13 +61,38 @@ export class WebSocketManager {
   }
 
   private establishConnection(): void {
+    // Clear any existing timeout
+    if (this.connectionTimeoutId) {
+      clearTimeout(this.connectionTimeoutId);
+      this.connectionTimeoutId = null;
+    }
+
+    const connectionTimeout = this.options.reconnectOptions?.connectionTimeout ?? 10000;
+
     try {
-      console.log('[WebSocketManager] Establishing connection to:', this.url);
-      this.ws = new WebSocket(this.url);
+      console.log('[WebSocketManager] Establishing connection to:', this.currentUrl);
+      this.ws = new WebSocket(this.currentUrl);
       this.ws.binaryType = 'arraybuffer';
 
+      // Connection timeout — if no onopen within timeout, treat as failed
+      this.connectionTimeoutId = setTimeout(() => {
+        if (this.ws?.readyState === WebSocket.CONNECTING) {
+          console.error('[WebSocketManager] Connection timeout after', connectionTimeout, 'ms');
+          this.ws.close();
+          this.ws = null;
+          this.connectionTimeoutId = null;
+          this.options.onError?.(`Connection timeout after ${connectionTimeout}ms`);
+          this.options.onStatusChange?.('error');
+          this.handleReconnect();
+        }
+      }, connectionTimeout);
+
       this.ws.onopen = () => {
-        console.log('[WebSocketManager] Connection opened');
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        console.log('[WebSocketManager] Connection opened to:', this.currentUrl);
         this.retryCount = 0;
         this.options.onStatusChange?.('open');
         while (this.messageQueue.length > 0) {
@@ -69,24 +102,36 @@ export class WebSocketManager {
       };
 
       this.ws.onmessage = (event) => {
-        console.log('[WebSocketManager] Message received:', typeof event.data, event.data instanceof ArrayBuffer ? `${event.data.byteLength} bytes` : event.data.substring(0, 100));
+        const dataSize = event.data instanceof ArrayBuffer
+          ? `${event.data.byteLength} bytes`
+          : typeof event.data === 'string' ? `${event.data.length} chars` : 'blob';
+        console.log('[WebSocketManager] Message received:', typeof event.data, dataSize);
         this.options.onMessage(event.data);
       };
 
       this.ws.onerror = (error) => {
-        // WebSocket error events don't contain details - the actual error is usually in the console
-        // or followed by a close event with error code
-        console.error('[WebSocketManager] WebSocket error event. Check network tab for details.');
-        console.error('[WebSocketManager] URL:', this.currentUrl);
-        console.error('[WebSocketManager] ReadyState:', this.ws?.readyState);
+        console.error('[WebSocketManager] WebSocket error event');
+        console.error('[WebSocketManager] URL:', this.currentUrl, 'ReadyState:', this.ws?.readyState);
         this.options.onError?.(error);
       };
 
       this.ws.onclose = (event) => {
-        console.log('[WebSocketManager] Connection closed:', event.code, event.reason || 'No reason provided');
-        console.log('[WebSocketManager] Closed from URL:', this.currentUrl);
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        const wasOpen = event.code === 1000 || event.code === 1001;
+        const wasError = event.code === 1006 || event.code === 1011;
+        console.log('[WebSocketManager] Connection closed:', event.code, event.reason || 'No reason',
+          wasError ? '(ERROR)' : wasOpen ? '(NORMAL)' : '(UNKNOWN)');
         this.ws = null;
-        this.options.onStatusChange?.('closed');
+
+        if (wasError && !this.shouldClosedIntentionally) {
+          this.options.onStatusChange?.('error');
+          this.options.onError?.(`Connection closed with error code ${event.code}`);
+        } else {
+          this.options.onStatusChange?.('closed');
+        }
 
         if (!this.shouldClosedIntentionally) {
           this.handleReconnect();
@@ -94,6 +139,12 @@ export class WebSocketManager {
       };
     } catch (e) {
       console.error('[WebSocketManager] Exception establishing connection:', e);
+      if (this.connectionTimeoutId) {
+        clearTimeout(this.connectionTimeoutId);
+        this.connectionTimeoutId = null;
+      }
+      this.options.onStatusChange?.('error');
+      this.options.onError?.(e instanceof Error ? e.message : String(e));
       this.handleReconnect();
     }
   }

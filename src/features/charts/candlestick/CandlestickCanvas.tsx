@@ -9,19 +9,26 @@ interface CandlestickCanvasProps {
   box: Box;
 }
 
-// Get CSS Variable colors
-const getColors = () => {
+// Get CSS Variable colors — cached to avoid repeated DOM reads
+let _colorCache: ReturnType<typeof _fetchColors> | null = null;
+const _fetchColors = () => {
   const root = getComputedStyle(document.documentElement);
   return {
     bg: root.getPropertyValue('--color-bg-base').trim() || '#0b0e11',
     green: root.getPropertyValue('--color-profit').trim() || '#00c076',
     red: root.getPropertyValue('--color-loss').trim() || '#cf304a',
     grid: root.getPropertyValue('--color-border-subtle').trim() || '#1e2329',
-    ma7: '#f0b90b', // Yellow
-    ma25: '#8739fa', // Purple
+    ma7: '#f0b90b',
+    ma25: '#8739fa',
     volUp: 'rgba(0, 192, 118, 0.2)',
     volDown: 'rgba(207, 48, 74, 0.2)'
   };
+};
+const getColors = () => {
+  if (!_colorCache) {
+    _colorCache = _fetchColors();
+  }
+  return _colorCache;
 };
 
 export const CandlestickCanvas: React.FC<CandlestickCanvasProps> = ({ candles, scales, box }) => {

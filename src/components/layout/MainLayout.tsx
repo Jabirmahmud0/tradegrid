@@ -5,11 +5,15 @@ import { useLiveStore } from '../../store/live-store';
 import { TradingDashboard } from '../../features/dashboard/TradingDashboard';
 import { AnalyticsPage } from '../../pages/analytics/AnalyticsPage';
 import { TimeMachinePage } from '../../pages/timemachine/TimeMachinePage';
+import { StoragePage } from '../../pages/storage/StoragePage';
+import { SecurityPage } from '../../pages/security/SecurityPage';
 
 const PAGE_MAP: Record<string, React.FC> = {
   dashboard: TradingDashboard,
   analytics: AnalyticsPage,
   replay: TimeMachinePage,
+  data: StoragePage,
+  status: SecurityPage,
 };
 
 export const MainLayout: React.FC = () => {

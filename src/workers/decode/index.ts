@@ -1,7 +1,9 @@
 import { decode } from '@msgpack/msgpack';
 
-export function decodePayload(data: ArrayBuffer | string, sourceType: 'mock' | 'binance' | 'custom'): any | null {
-  if (sourceType === 'binance' || !(data instanceof ArrayBuffer)) {
+type DecodeSourceType = 'mock' | 'binance' | 'binance-testnet' | 'custom';
+
+export function decodePayload(data: ArrayBuffer | string, sourceType: DecodeSourceType): any | null {
+  if (sourceType.startsWith('binance') || !(data instanceof ArrayBuffer)) {
     try {
       return typeof data === 'string' ? JSON.parse(data) : JSON.parse(new TextDecoder().decode(data));
     } catch (e) {

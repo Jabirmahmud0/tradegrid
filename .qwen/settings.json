@@ -1,8 +1,15 @@
 {
   "permissions": {
     "allow": [
+      "Bash(del *)",
       "Bash(npx *)",
-      "Bash(npm run *)"
+      "Bash(npm install *)",
+      "Bash(rd *)",
+      "Bash(npm ls *)",
+      "Bash(npm run *)",
+      "Bash(timeout *)",
+      "Bash(do *)",
+      "Bash(findstr *)"
     ]
   },
   "$version": 3

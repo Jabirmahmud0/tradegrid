@@ -24,13 +24,21 @@ export const CandlestickOverlay: React.FC<CandlestickOverlayProps> = ({
   const isInRange = crosshair && crosshair.x >= margin.left && crosshair.x <= margin.left + chartWidth;
   const showCrosshair = crosshair && isInRange;
 
-  // Find hovered candle for OHLC info
-  const hoveredIndex = showCrosshair && candles.length > 0 ? Math.floor((crosshair.x - margin.left) / (candleWidth + 2)) : -1;
+  // Find hovered candle for OHLC info — use the same spacing as the scales (candleWidth + gap)
+  // The full cell width is chartWidth / candles.length (which equals candleWidth + gap)
+  const cellWidth = candles.length > 0 ? chartWidth / candles.length : candleWidth + 3;
+  const hoveredIndex = showCrosshair && candles.length > 0
+    ? Math.max(0, Math.min(candles.length - 1, Math.round((crosshair.x - margin.left) / cellWidth)))
+    : -1;
   const candle = candles && candles.length > 0 && hoveredIndex >= 0 && hoveredIndex < candles.length 
     ? candles[hoveredIndex] 
     : candles?.[candles.length - 1];
 
-  const formatPrice = (p: number) => p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formatPrice = (p: number) => {
+    // Round to nice numbers for axis display
+    const nice = p >= 10000 ? Math.round(p / 10) * 10 : p >= 1000 ? Math.round(p) : p;
+    return nice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">

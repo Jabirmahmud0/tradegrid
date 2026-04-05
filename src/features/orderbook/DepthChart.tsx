@@ -60,17 +60,17 @@ export const DepthChart: React.FC<DepthChartProps> = ({ className, symbol }) => 
                   </tr>
               </thead>
               <tbody>
-                  {bids.slice(0, 5).map((b: OrderBookLevel) => (
-                      <tr key={b.price}>
-                          <td>{b.price}</td>
-                          <td>{b.total}</td>
+                  {bids.slice(0, 20).map((b: OrderBookLevel) => (
+                      <tr key={`bid-${b.price}`}>
+                          <td>{b.price.toLocaleString()}</td>
+                          <td>{b.total.toFixed(4)}</td>
                           <td>Bid</td>
                       </tr>
                   ))}
-                  {asks.slice(0, 5).map((a: OrderBookLevel) => (
-                      <tr key={a.price}>
-                          <td>{a.price}</td>
-                          <td>{a.total}</td>
+                  {asks.slice(0, 20).map((a: OrderBookLevel) => (
+                      <tr key={`ask-${a.price}`}>
+                          <td>{a.price.toLocaleString()}</td>
+                          <td>{a.total.toFixed(4)}</td>
                           <td>Ask</td>
                       </tr>
                   ))}

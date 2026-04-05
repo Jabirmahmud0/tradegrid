@@ -1,6 +1,7 @@
 import React, { useRef, useLayoutEffect } from 'react';
 import { OrderBookLevel } from '../../store/live-store/orderbook.slice';
 import { DepthScales } from './use-depth-scales';
+import { toRgba } from '../../lib/utils';
 
 interface DepthCanvasProps {
   bids: OrderBookLevel[];
@@ -46,10 +47,10 @@ export const DepthCanvas: React.FC<DepthCanvasProps> = ({ bids, asks, scales }) 
         const first = data[0];
         const last = data[data.length - 1];
 
-        // Gradient Fill
+        // Gradient Fill — properly handles hex, rgb, and rgba colors
         const gradient = ctx.createLinearGradient(0, margin.top, 0, margin.top + chartHeight);
-        gradient.addColorStop(0, color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
-        gradient.addColorStop(1, color.replace(')', ', 0.05)').replace('rgb', 'rgba'));
+        gradient.addColorStop(0, toRgba(color, 0.3));
+        gradient.addColorStop(1, toRgba(color, 0.05));
         ctx.fillStyle = gradient;
 
         // Path for fill

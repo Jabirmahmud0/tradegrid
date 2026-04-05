@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { marketClient } from '../services/market-client';
-
-const DEFAULT_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'ARB-USD', 'OP-USD'];
+import { useLiveStore } from '../store/live-store';
+import { buildStreamSymbols, DEFAULT_STREAM_SYMBOLS } from '../lib/market-symbols';
 
 export interface MarketStreamControls {
   connectToBinance: () => void;
@@ -36,15 +36,18 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
 
   // Initial connection + default symbol subscription
   useEffect(() => {
-    marketClient.connectToMock();
+    const initialSource = useLiveStore.getState().dataSource;
 
-    const subscribeTimeout = setTimeout(() => {
-      marketClient.subscribe(DEFAULT_SYMBOLS);
-    }, 1000);
+    if (initialSource.startsWith('binance')) {
+      marketClient.connect({ type: initialSource, symbols: buildStreamSymbols(activeSymbol) });
+    } else {
+      marketClient.connect({ type: 'mock', symbols: [...DEFAULT_STREAM_SYMBOLS] });
+    }
 
     return () => {
-      clearTimeout(subscribeTimeout);
-      marketClient.unsubscribe(DEFAULT_SYMBOLS);
+      if (marketClient.sourceType === 'mock') {
+        marketClient.unsubscribe([...DEFAULT_STREAM_SYMBOLS]);
+      }
       marketClient.disconnect();
     };
     // Only run once on mount
@@ -59,13 +62,17 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
 
     // For binance sources, reconnect with new symbol list
     if (marketClient.sourceType.startsWith('binance')) {
-      marketClient.connect({ type: marketClient.sourceType, symbols: [activeSymbol] });
+      marketClient.connect({ type: marketClient.sourceType, symbols: buildStreamSymbols(activeSymbol) });
     }
 
-    marketClient.subscribe([activeSymbol]);
+    if (marketClient.sourceType === 'mock') {
+      marketClient.subscribe([activeSymbol]);
+    }
 
     return () => {
-      marketClient.unsubscribe([activeSymbol]);
+      if (marketClient.sourceType === 'mock') {
+        marketClient.unsubscribe([activeSymbol]);
+      }
     };
   }, [activeSymbol]);
 

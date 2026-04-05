@@ -8,6 +8,10 @@ export interface CandlesSlice {
   candles: Record<string, NormalizedCandle[]>;
   setCandle: (candle: NormalizedCandle) => void;
   setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) => void;
+  /** Clear all candle buffers for a symbol (used on symbol switch) */
+  clearCandles: (symbol: string) => void;
+  /** Clear all candle buffers entirely */
+  clearAllCandles: () => void;
 }
 
 export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice> = (set) => {
@@ -57,6 +61,22 @@ export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice
             [key]: buffer.toArray(),
           },
         };
+      }),
+    clearCandles: (symbol: string) =>
+      set((state: CandlesSlice) => {
+        const newCandles = { ...state.candles };
+        for (const key of buffers.keys()) {
+          if (key.startsWith(`${symbol}-`)) {
+            buffers.get(key)!.clear();
+            delete newCandles[key];
+          }
+        }
+        return { candles: newCandles };
+      }),
+    clearAllCandles: () =>
+      set(() => {
+        buffers.forEach((buf) => buf.clear());
+        return { candles: {} };
       }),
   };
 };

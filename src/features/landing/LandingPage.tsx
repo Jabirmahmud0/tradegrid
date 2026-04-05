@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { APP_VERSION } from '../../config/app';
 import { Activity, Zap, Cpu, History, ChevronRight } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -44,7 +45,7 @@ export const LandingPage: React.FC = () => {
                                 <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
                             </Link>
                             <span className="text-zinc-600 font-mono text-sm border-l border-zinc-800 pl-6">
-                                v1.0.4 <br /> Stable Release
+                                v{APP_VERSION} <br /> Stable Release
                             </span>
                         </div>
                     </div>

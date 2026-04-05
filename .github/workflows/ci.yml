@@ -62,3 +62,32 @@ jobs:
             echo "WARNING: JS bundle exceeded 500kb gzipped (${GZIPPED} bytes)"
             exit 1
           fi
+
+  server-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Server Dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Server Typecheck
+        working-directory: ./server
+        run: npx tsc --noEmit
+
+      - name: Server Build
+        working-directory: ./server
+        run: npm run build
+
+      - name: Server Tests
+        working-directory: ./server
+        run: npm run test

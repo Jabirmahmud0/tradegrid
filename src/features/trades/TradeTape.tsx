@@ -43,7 +43,22 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
     }),
     columnHelper.accessor('qty', {
       header: 'Qty',
-      cell: info => <span className="text-[var(--color-text-secondary)] text-right">{info.getValue().toFixed(4)}</span>,
+      cell: info => (
+        <div className="flex items-center justify-end gap-1.5">
+          {/* Size indicator bar (L5) */}
+          <div
+            className={cn(
+              "h-1 rounded-sm min-w-[2px] transition-all",
+              info.row.original.side === 's' ? "bg-[var(--color-loss)]" : "bg-[var(--color-profit)]"
+            )}
+            style={{
+              width: `${Math.max(2, Math.min(32, info.getValue() * 8))}px`,
+              opacity: 0.5
+            }}
+          />
+          <span className="text-[var(--color-text-secondary)] text-right tabular-nums">{info.getValue().toFixed(4)}</span>
+        </div>
+      ),
     }),
     columnHelper.accessor('formattedTime', {
       header: 'Time',
@@ -134,7 +149,7 @@ export const TradeTape: React.FC<TradeTapeProps> = ({ symbol, className }) => {
                   }}
                   className={cn(
                       "grid grid-cols-3 px-3 py-0.5 items-center hover:bg-[var(--color-bg-surface)] transition-colors cursor-default border-l-2 border-transparent",
-                      isFresh && !scrollLock && (trade.side === 's' ? "animate-pulse" : "animate-pulse"),
+                      isFresh && !scrollLock && "animate-pulse",
                       trade.side === 's' ? "hover:border-[var(--color-loss)]/30" : "hover:border-[var(--color-profit)]/30"
                   )}
                 >

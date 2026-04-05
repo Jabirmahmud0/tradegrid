@@ -45,10 +45,20 @@ export class IngestionQueue {
 
   /**
    * Bulk enqueue for better performance.
+   * Uses a bulk-aware overflow check to avoid running the overflow check per-item.
    */
   enqueueBatch(events: IngestionEvent[]): void {
+    // Bulk overflow check: if adding all events exceeds limit, trim first
+    const overflow = this.currentSize + events.length - this.maxQueueDepth;
+    if (overflow > 0) {
+      for (let i = 0; i < overflow; i++) {
+        this.dropOldest();
+      }
+    }
+
     for (const event of events) {
-      this.enqueue(event);
+      this.queues[event.type].push(event.data);
+      this.currentSize++;
     }
   }
 
@@ -90,8 +100,12 @@ export class IngestionQueue {
   }
 
   get stats() {
+    const utilization = this.currentSize / this.maxQueueDepth;
     return {
       size: this.currentSize,
+      utilization,
+      // Watermark: warn when queue is approaching capacity (>80%)
+      nearCapacity: utilization > 0.8,
       depths: Object.fromEntries(
         Object.entries(this.queues).map(([type, q]) => [type, q.length])
       )

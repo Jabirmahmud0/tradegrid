@@ -8,14 +8,14 @@
  */
 
 export const BINANCE_STREAM_ENDPOINTS = [
-  'wss://data-stream.binance.vision',
   'wss://stream.binance.com:9443',
   'wss://stream.binance.com:443',
+  'wss://data-stream.binance.vision',
 ];
 
 export const BINANCE_TESTNET_STREAM_ENDPOINTS = [
-  'wss://stream.binancefuture.com',
-  'wss://testnet.binance.vision',
+  'wss://stream.testnet.binance.vision',
+  'wss://stream.testnet.binance.vision:9443',
 ];
 
 /**

@@ -5,8 +5,9 @@ import { Price } from '../common/Price';
 import { Badge } from '../common/Badge';
 import { StatusIndicator } from '../common/StatusIndicator';
 import { Button } from '../ui/Button';
-import { marketClient, DataSourceType } from '../../services/market-client';
+import { marketClient } from '../../services/market-client';
 import { useSymbols, useServerStatus } from '../../services/market-data.queries';
+import { buildStreamSymbols } from '../../lib/market-symbols';
 import { cn } from '../../utils';
 
 export const TopBar: React.FC = () => {
@@ -15,6 +16,7 @@ export const TopBar: React.FC = () => {
   const systemReady = useLiveStore((state) => state.systemReady);
   const metrics = useLiveStore((state) => state.metrics);
   const stats = useLiveStore((state) => state.stats[activeSymbol]);
+  const dataSource = useLiveStore((state) => state.dataSource);
 
   // HTTP-fetched metadata via TanStack Query (not streaming state)
   const { data: symbolsMeta } = useSymbols();
@@ -22,8 +24,7 @@ export const TopBar: React.FC = () => {
 
   const [symbolDropdownOpen, setSymbolDropdownOpen] = React.useState(false);
   const [intervalDropdownOpen, setIntervalDropdownOpen] = React.useState(false);
-  const [dataSourceOpen, setDataSourceOpen] = React.useState(false);
-  const [currentSource, setCurrentSource] = React.useState<DataSourceType>('mock');
+  const [dataSourceDropdownOpen, setDataSourceDropdownOpen] = React.useState(false);
 
   // Real system cores
   const cores = React.useMemo(() => typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4, []);
@@ -36,37 +37,30 @@ export const TopBar: React.FC = () => {
   const setActiveSymbol = useLiveStore((state) => state.setActiveSymbol);
   const setActiveInterval = useLiveStore((state) => state.setActiveInterval);
 
-  // Sync with marketClient state
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSource(marketClient.sourceType);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const dataSources: { type: DataSourceType; label: string; description: string }[] = [
+  const dataSources: { type: 'mock' | 'binance' | 'binance-testnet'; label: string; description: string }[] = [
     { type: 'mock', label: 'Mock Server', description: 'Local simulated data' },
     { type: 'binance-testnet', label: 'Binance Testnet', description: 'Real-time testnet data' },
     { type: 'binance', label: 'Binance Mainnet', description: 'Live market data' },
   ];
 
-  const handleSelectSource = (type: DataSourceType) => {
-    setDataSourceOpen(false);
-    
+  const handleSelectSource = (type: 'mock' | 'binance' | 'binance-testnet') => {
+    setDataSourceDropdownOpen(false);
+
     switch (type) {
       case 'mock':
-        marketClient.connectToMock();
+        marketClient.connect({ type: 'mock', symbols: [activeSymbol] });
         break;
       case 'binance-testnet':
-        marketClient.connectToBinanceTestnet([activeSymbol]);
+        marketClient.connectToBinanceTestnet(buildStreamSymbols(activeSymbol));
         break;
       case 'binance':
-        marketClient.connectToBinance([activeSymbol]);
+        marketClient.connectToBinance(buildStreamSymbols(activeSymbol));
         break;
     }
-    
-    // Force re-render to update UI
-    setCurrentSource(type);
+
+    // DO NOT call setDataSource() here — marketClient will update the store
+    // AFTER the connection is confirmed (on CONNECTED message).
+    // If the connection fails, marketClient will revert to the previous source.
   };
 
   return (
@@ -83,7 +77,7 @@ export const TopBar: React.FC = () => {
             aria-controls="symbol-listbox"
             aria-labelledby="symbol-label"
             className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-            onClick={() => { setSymbolDropdownOpen(!symbolDropdownOpen); setIntervalDropdownOpen(false); setDataSourceOpen(false); }}
+            onClick={() => { setSymbolDropdownOpen(!symbolDropdownOpen); setIntervalDropdownOpen(false); setDataSourceDropdownOpen(false); }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSymbolDropdownOpen(!symbolDropdownOpen); }
               if (e.key === 'Escape') setSymbolDropdownOpen(false);
@@ -132,7 +126,7 @@ export const TopBar: React.FC = () => {
             aria-controls="interval-listbox"
             aria-labelledby="interval-label"
             className="flex items-center gap-1.5 cursor-pointer hover:bg-zinc-900 px-1.5 py-0.5 -ml-1.5 rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-            onClick={() => { setIntervalDropdownOpen(!intervalDropdownOpen); setSymbolDropdownOpen(false); setDataSourceOpen(false); }}
+            onClick={() => { setIntervalDropdownOpen(!intervalDropdownOpen); setSymbolDropdownOpen(false); setDataSourceDropdownOpen(false); }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIntervalDropdownOpen(!intervalDropdownOpen); }
               if (e.key === 'Escape') setIntervalDropdownOpen(false);
@@ -211,20 +205,20 @@ export const TopBar: React.FC = () => {
             variant="ghost" 
             size="icon" 
             className="h-8 w-8"
-            onClick={() => { setDataSourceOpen(!dataSourceOpen); setSymbolDropdownOpen(false); setIntervalDropdownOpen(false); }}
+            onClick={() => { setDataSourceDropdownOpen(!dataSourceDropdownOpen); setSymbolDropdownOpen(false); setIntervalDropdownOpen(false); }}
           >
-            {currentSource === 'mock' ? (
+            {dataSource === 'mock' ? (
               <WifiOff className="w-4 h-4 text-zinc-500" />
             ) : (
               <Wifi className="w-4 h-4 text-emerald-500" />
             )}
           </Button>
-          
-          {dataSourceOpen && (
+
+          {dataSourceDropdownOpen && (
             <>
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setDataSourceOpen(false)}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setDataSourceDropdownOpen(false)}
               />
               <div className="absolute right-0 top-10 w-64 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden">
                 <div className="p-3 border-b border-zinc-800">
@@ -238,14 +232,14 @@ export const TopBar: React.FC = () => {
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-zinc-800 transition-colors group"
                     >
                       <div className={`w-2 h-2 rounded-full ${
-                        currentSource === source.type 
-                          ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                        dataSource === source.type
+                          ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
                           : 'bg-zinc-700'
                       }`} />
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-zinc-200">{source.label}</span>
-                          {currentSource === source.type && (
+                          {dataSource === source.type && (
                             <Check className="w-3 h-3 text-emerald-500" />
                           )}
                         </div>
@@ -256,7 +250,7 @@ export const TopBar: React.FC = () => {
                 </div>
                 <div className="p-3 bg-zinc-950/50 border-t border-zinc-800">
                   <p className="text-[10px] text-zinc-500">
-                    {currentSource === 'mock'
+                    {dataSource === 'mock'
                       ? `Using simulated market data${serverStatus ? ` — ${serverStatus.clients} client(s), ${serverStatus.bufferSize} buffered` : ''}`
                       : 'Connected to live data stream'}
                   </p>

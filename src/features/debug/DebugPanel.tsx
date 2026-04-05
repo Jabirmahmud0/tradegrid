@@ -185,7 +185,7 @@ export const DebugPanel: React.FC<{ className?: string }> = ({ className }) => {
                     <div className="bg-black/40 border border-zinc-900 rounded p-2 h-32 overflow-y-auto space-y-1 font-mono text-[9px]">
                         {eventLog.length === 0 && <div className="text-zinc-800 italic">No trace events captured...</div>}
                         {eventLog.slice(0, 50).map((log, i) => (
-                            <div key={i} className="flex gap-2 leading-relaxed">
+                            <div key={log.ts || log.id || `${log.type}-${i}`} className="flex gap-2 leading-relaxed">
                                 <span className="text-zinc-700 shrink-0">[{new Date(log.ts).toLocaleTimeString()}]</span>
                                 <span className={cn(
                                     log.level === 'error' ? "text-red-500" : 

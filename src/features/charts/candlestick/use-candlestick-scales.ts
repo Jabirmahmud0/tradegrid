@@ -22,6 +22,18 @@ export interface CandlestickScales {
   timeLabels: { x: number; label: string }[];
 }
 
+/**
+ * Round a price to a "nice" number for display on the axis.
+ * e.g., 50237.15 → 50240, 1.234 → 1.23
+ */
+function nicePrice(price: number): number {
+  if (price >= 10000) return Math.round(price / 10) * 10;
+  if (price >= 1000) return Math.round(price);
+  if (price >= 100) return Math.round(price * 10) / 10;
+  if (price >= 1) return Math.round(price * 100) / 100;
+  return Math.round(price * 1000) / 1000;
+}
+
 export const useCandlestickScales = (
   candles: NormalizedCandle[],
   box: Box,
