@@ -6,9 +6,11 @@ import { cn } from '../../utils';
 import type { MarketStats } from '../../store/live-store/market-stats.slice';
 
 const SECTORS = ['Core', 'L1', 'L2', 'DeFi'] as const;
+const EMPTY_HEATMAP_CELLS: any[] = [];
 
 export const AnalyticsPage: React.FC = () => {
-  const symbols = useLiveStore((s) => s.heatmap?.cells || []);
+  // Important: keep fallback stable to avoid useSyncExternalStore infinite rerender loops.
+  const symbols = useLiveStore((s) => s.heatmap?.cells ?? EMPTY_HEATMAP_CELLS);
   const books = useLiveStore((s) => s.books);
   const trades = useLiveStore((s) => s.trades);
   const stats = useLiveStore((s) => s.stats);

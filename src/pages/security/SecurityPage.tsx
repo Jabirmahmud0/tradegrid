@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils';
 export const SecurityPage: React.FC = () => {
   const systemReady = useLiveStore((s) => s.systemReady);
   const metrics = useLiveStore((s) => s.metrics);
-  const replay = useLiveStore((s) => s.replay);
+  const mode = useLiveStore((s) => s.mode);
 
   // Simulated connection status (in real app, this would come from WebSocket manager)
   const wsStatus: 'connected' | 'reconnecting' | 'disconnected' = systemReady ? 'connected' : 'disconnected';
@@ -22,7 +22,7 @@ export const SecurityPage: React.FC = () => {
     { label: 'MessagePack Serialization', status: 'pass' as const, detail: 'Binary payload encoding verified' },
     { label: 'Worker Isolation', status: 'pass' as const, detail: 'Web Worker sandboxes heavy computation' },
     { label: 'Memory Bounds', status: 'pass' as const, detail: 'All streams use bounded ring buffers' },
-    { label: 'Replay Determinism', status: replay.mode === 'replay' ? 'pass' : 'warn' as const, detail: replay.mode === 'replay' ? 'Replay mode active' : 'Live mode — replay engine standby' },
+    { label: 'Replay Determinism', status: mode === 'REPLAY' ? 'pass' : 'warn' as const, detail: mode === 'REPLAY' ? 'Replay mode active' : 'Live mode - replay engine standby' },
     { label: 'Input Validation', status: 'pass' as const, detail: 'All stream events schema-validated in worker' },
     { label: 'No Sensitive Data Exposure', status: 'pass' as const, detail: 'No auth tokens or PII in streaming payloads' },
     { label: 'CSP Headers (deployed)', status: 'warn' as const, detail: 'Configured in deployment; dev mode relaxed' },

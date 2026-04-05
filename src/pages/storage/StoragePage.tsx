@@ -10,7 +10,7 @@ export const StoragePage: React.FC = () => {
   const candles = useLiveStore((s) => s.candles);
   const books = useLiveStore((s) => s.books);
   const heatmap = useLiveStore((s) => s.heatmap);
-  const debugLog = useLiveStore((s) => s.debug.eventLog);
+  const debugLog = useLiveStore((s) => s.eventLog);
 
   // Calculate buffer utilization per stream type
   const tradeCapacity = RETENTION_POLICIES.TRADES;
