@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { marketClient } from '../services/market-client';
 import { useLiveStore } from '../store/live-store';
 import { buildStreamSymbols, DEFAULT_STREAM_SYMBOLS } from '../lib/market-symbols';
+import { fetchBinanceCandles } from '../services/binance-market-data';
 
 export interface MarketStreamControls {
   connectToBinance: () => void;
@@ -24,6 +25,9 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
   const symbolRef = useRef(activeSymbol);
   const [sourceType, setSourceType] = useState(marketClient.sourceType);
   const [isConnected, setIsConnected] = useState(marketClient.connected);
+  const activeInterval = useLiveStore((state) => state.activeInterval);
+  const dataSource = useLiveStore((state) => state.dataSource);
+  const setCandles = useLiveStore((state) => state.setCandles);
 
   // Keep sourceType / isConnected fresh via polling (lightweight, no event bus needed)
   useEffect(() => {
@@ -39,7 +43,12 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
     const initialSource = useLiveStore.getState().dataSource;
 
     if (initialSource.startsWith('binance')) {
-      marketClient.connect({ type: initialSource, symbols: buildStreamSymbols(activeSymbol) });
+      marketClient.connect({
+        type: initialSource,
+        symbols: buildStreamSymbols(activeSymbol),
+        interval: activeInterval,
+        focusSymbol: activeSymbol,
+      });
     } else {
       marketClient.connect({ type: 'mock', symbols: [...DEFAULT_STREAM_SYMBOLS] });
     }
@@ -62,7 +71,12 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
 
     // For binance sources, reconnect with new symbol list
     if (marketClient.sourceType.startsWith('binance')) {
-      marketClient.connect({ type: marketClient.sourceType, symbols: buildStreamSymbols(activeSymbol) });
+      marketClient.connect({
+        type: marketClient.sourceType,
+        symbols: buildStreamSymbols(activeSymbol),
+        interval: activeInterval,
+        focusSymbol: activeSymbol,
+      });
     }
 
     if (marketClient.sourceType === 'mock') {
@@ -74,7 +88,26 @@ export function useMarketStream(activeSymbol: string): MarketStreamControls {
         marketClient.unsubscribe([activeSymbol]);
       }
     };
-  }, [activeSymbol]);
+  }, [activeInterval, activeSymbol]);
+
+  useEffect(() => {
+    if (dataSource !== 'binance' && dataSource !== 'binance-testnet') return;
+
+    const controller = new AbortController();
+
+    fetchBinanceCandles(dataSource, activeSymbol, activeInterval, 300, controller.signal)
+      .then((candles) => {
+        if (candles.length > 0) {
+          setCandles(activeSymbol, activeInterval, candles);
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error('[useMarketStream] Failed to hydrate Binance candles:', error);
+      });
+
+    return () => controller.abort();
+  }, [activeInterval, activeSymbol, dataSource, setCandles]);
 
   // Stable control functions
   const connectToBinance = useCallback(() => marketClient.connectToBinance(), []);

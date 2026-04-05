@@ -26,14 +26,6 @@ export interface CandlestickScales {
  * Round a price to a "nice" number for display on the axis.
  * e.g., 50237.15 → 50240, 1.234 → 1.23
  */
-function nicePrice(price: number): number {
-  if (price >= 10000) return Math.round(price / 10) * 10;
-  if (price >= 1000) return Math.round(price);
-  if (price >= 100) return Math.round(price * 10) / 10;
-  if (price >= 1) return Math.round(price * 100) / 100;
-  return Math.round(price * 1000) / 1000;
-}
-
 export const useCandlestickScales = (
   candles: NormalizedCandle[],
   box: Box,
@@ -71,17 +63,25 @@ export const useCandlestickScales = (
       if (c.v > maxVolume) maxVolume = c.v;
     });
 
-    // Ensure minimum price range to avoid division by zero
     const rawRange = maxPrice - minPrice;
-    // Use 15% of actual data range as padding, with a reasonable floor
-    const pricePadding = rawRange > 0 ? rawRange * 0.15 : 10;
-    // Floor padding: 0.5% of price for high-priced assets (was 1%, too much for BTC)
-    const minPadding = Math.max(Math.abs(maxPrice) * 0.005, 0.5);
-    maxPrice += Math.max(pricePadding, minPadding);
-    minPrice -= Math.max(pricePadding, minPadding);
+    const midpoint = (maxPrice + minPrice) / 2;
+
+    if (rawRange <= 0) {
+      const fallbackRange = Math.max(Math.abs(midpoint) * 0.002, 1);
+      maxPrice = midpoint + fallbackRange / 2;
+      minPrice = midpoint - fallbackRange / 2;
+    } else {
+      const rangePadding = rawRange * 0.12;
+      const absoluteFloor = Math.max(Math.abs(midpoint) * 0.0002, 0.5);
+      const absoluteCap = Math.max(Math.abs(midpoint) * 0.0015, absoluteFloor);
+      const padding = Math.min(Math.max(rangePadding, absoluteFloor), absoluteCap);
+      maxPrice += padding;
+      minPrice -= padding;
+    }
+
     const priceRange = maxPrice - minPrice;
 
-    const candleWidth = chartWidth / candles.length - gap;
+    const candleWidth = Math.max(1, chartWidth / candles.length - gap);
 
     const getX = (index: number) => box.margin.left + index * (candleWidth + gap);
     const getY = (price: number) =>

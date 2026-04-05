@@ -27,18 +27,24 @@ export const BINANCE_TESTNET_STREAM_ENDPOINTS = [
 export function buildBinanceStreamUrl(
   symbols: string[],
   endpointIndex: number = 0,
-  isTestnet: boolean = false
+  isTestnet: boolean = false,
+  activeInterval: string = '1m',
+  focusSymbol?: string
 ): string {
   const endpoints = isTestnet ? BINANCE_TESTNET_STREAM_ENDPOINTS : BINANCE_STREAM_ENDPOINTS;
   const baseUrl = endpoints[endpointIndex % endpoints.length];
+  const focused = focusSymbol ?? symbols[0];
   
   const streams = symbols.flatMap(sym => {
     const binanceSym = toBinanceSymbol(sym);
-    return [
-      `${binanceSym.toLowerCase()}@trade`,
-      `${binanceSym.toLowerCase()}@kline_1m`,
-      `${binanceSym.toLowerCase()}@depth20@100ms`
-    ];
+    const streamList = [`${binanceSym.toLowerCase()}@trade`];
+    if (sym === focused) {
+      streamList.push(
+        `${binanceSym.toLowerCase()}@kline_${activeInterval.toLowerCase()}`,
+        `${binanceSym.toLowerCase()}@depth20@100ms`
+      );
+    }
+    return streamList;
   });
   
   // Correct format: /stream?streams=... (not /ws/stream?streams=...)

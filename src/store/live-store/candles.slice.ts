@@ -48,12 +48,12 @@ export const createCandlesSlice: StateCreator<CandlesSlice, [], [], CandlesSlice
         return result;
       }),
     setCandles: (symbol: string, interval: CandleInterval, candles: NormalizedCandle[]) =>
-      set((state: CandlesSlice) => {
+    set((state: CandlesSlice) => {
         const key = `${symbol}-${interval}`;
         const buffer = getBuffer(key, interval);
         buffer.clear();
-        // Assuming incoming block is newest-first, pushing in reverse to store chronological
-        buffer.pushMany([...candles].reverse());
+        // Historical candle blocks arrive oldest-to-newest from Binance REST.
+        buffer.pushMany(candles);
 
         return {
           candles: {

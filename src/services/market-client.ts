@@ -2,6 +2,8 @@ import { useLiveStore } from '../store/live-store';
 import { StreamEvent, NormalizedTrade, NormalizedCandle, BookDeltaEvent, HeatmapEvent } from '../types/stream.types';
 import { buildBinanceStreamUrl, BINANCE_STREAM_ENDPOINTS, BINANCE_TESTNET_STREAM_ENDPOINTS } from '../adapters/binance.adapter';
 import { rafFlushController } from '../streams/buffering/raf-flush-controller';
+import { CandleInterval } from '../types';
+import { toBinanceInterval } from './binance-market-data';
 
 export type DataSourceType = 'mock' | 'binance' | 'binance-testnet' | 'custom';
 
@@ -9,6 +11,8 @@ export interface ConnectOptions {
   type?: DataSourceType;
   url?: string;
   symbols?: string[];
+  interval?: CandleInterval;
+  focusSymbol?: string;
 }
 
 class MarketClient {
@@ -108,7 +112,7 @@ class MarketClient {
    * On failure, automatically reverts to the previous source.
    */
   public connect(options: ConnectOptions = {}) {
-    const { type = 'mock', url, symbols = [] } = options;
+    const { type = 'mock', url, symbols = [], interval = '1m', focusSymbol } = options;
 
     const symbolsMatch = this.currentSymbols.join(',') === symbols.join(',');
     const sourceChanged = this.currentSourceType !== type;
@@ -147,12 +151,12 @@ class MarketClient {
 
     switch (type) {
       case 'binance':
-        connectionUrl = buildBinanceStreamUrl(symbols, 0);
+        connectionUrl = buildBinanceStreamUrl(symbols, 0, false, toBinanceInterval(interval), focusSymbol);
         endpoints = BINANCE_STREAM_ENDPOINTS;
         console.log('[MarketClient] Connecting to Binance:', connectionUrl);
         break;
       case 'binance-testnet':
-        connectionUrl = buildBinanceStreamUrl(symbols, 0, true);
+        connectionUrl = buildBinanceStreamUrl(symbols, 0, true, toBinanceInterval(interval), focusSymbol);
         endpoints = BINANCE_TESTNET_STREAM_ENDPOINTS;
         console.log('[MarketClient] Connecting to Binance (testnet mode):', connectionUrl);
         break;

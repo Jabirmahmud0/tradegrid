@@ -51,10 +51,20 @@ export const TopBar: React.FC = () => {
         marketClient.connect({ type: 'mock', symbols: [activeSymbol] });
         break;
       case 'binance-testnet':
-        marketClient.connectToBinanceTestnet(buildStreamSymbols(activeSymbol));
+        marketClient.connect({
+          type: 'binance-testnet',
+          symbols: buildStreamSymbols(activeSymbol),
+          interval: activeInterval,
+          focusSymbol: activeSymbol,
+        });
         break;
       case 'binance':
-        marketClient.connectToBinance(buildStreamSymbols(activeSymbol));
+        marketClient.connect({
+          type: 'binance',
+          symbols: buildStreamSymbols(activeSymbol),
+          interval: activeInterval,
+          focusSymbol: activeSymbol,
+        });
         break;
     }
 
