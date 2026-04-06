@@ -36,14 +36,19 @@ export const useLiveStore = create<RootState>()(
       ...createReplaySlice(...a),
       ...createDebugSlice(...a),
       ...createMarketStatsSlice(...a),
-      clearAllData: () =>
+      clearAllData: () => {
+        const tradesSlice = createTradesSlice(...a);
+        const candlesSlice = createCandlesSlice(...a);
+        tradesSlice.clearTrades();
+        candlesSlice.clearAllCandles();
         a[0]({
-          ...createTradesSlice(...a).clearTrades(),
-          ...createCandlesSlice(...a).clearAllCandles(),
+          trades: [],
+          candles: {},
           books: {},
           heatmap: null,
           stats: {},
-        }),
+        });
+      },
     }),
     {
       name: 'TradeGrid Store',

@@ -9,7 +9,7 @@ import { DEFAULT_SCENARIO, BURST_SCENARIO, FAILURE_SCENARIO, MALFORMED_SCENARIO,
 import { HeatmapGenerator } from './engine/heatmap.js';
 import { getSector } from './utils/sectors.js';
 
-const PORT = 4000;
+const PORT = parseInt(process.env.PORT || '4000', 10);
 const app = express();
 
 // Middleware
@@ -115,6 +115,7 @@ wss.on('connection', (ws: WebSocket) => {
   });
 
   ws.send(JSON.stringify({ type: 'welcome', id, symbols }));
+  sendReplayState(client);
 });
 
 function handleMessage(client: Client, message: any) {
@@ -137,18 +138,25 @@ function handleMessage(client: Client, message: any) {
       break;
     case 'replay-start':
       isReplaying = true;
-      replayCursor = 0;
+      if (typeof message.index === 'number' && Number.isFinite(message.index)) {
+        replayCursor = Math.max(0, Math.min(historicalBuffer.length - 1, Math.floor(message.index)));
+      } else if (replayCursor >= historicalBuffer.length) {
+        replayCursor = 0;
+      }
       playbackSpeed = message.speed || 1;
       console.log(`[Server] Entering REPLAY mode at ${playbackSpeed}x`);
+      sendReplayState(client);
       restartTicker();
       break;
     case 'replay-stop':
       isReplaying = false;
       console.log(`[Server] Returning to LIVE mode`);
+      sendReplayState(client);
       restartTicker();
       break;
     case 'replay-seek':
       replayCursor = Math.max(0, Math.min(historicalBuffer.length - 1, message.index));
+      sendReplayState(client);
       break;
   }
 }
@@ -183,9 +191,13 @@ function startTicker() {
                 const event = historicalBuffer[replayCursor];
                 broadcast(event.sym || 'BTC-USD', event, true);
                 replayCursor++;
+                if (replayCursor % 25 === 0 || replayCursor >= historicalBuffer.length) {
+                  clients.forEach(sendReplayState);
+                }
             } else {
                 isReplaying = false;
                 console.log(`[Server] Replay finished`);
+                clients.forEach(sendReplayState);
                 break;
             }
         }
@@ -264,6 +276,19 @@ function broadcast(symbol: string, event: any, isReplay = false) {
       client.ws.send(payload);
     }
   });
+}
+
+function sendReplayState(client: Client) {
+  if (client.ws.readyState !== WebSocket.OPEN) return;
+  client.ws.send(JSON.stringify({
+    type: 'replay-state',
+    mode: isReplaying ? 'REPLAY' : 'LIVE',
+    playing: isReplaying,
+    cursor: replayCursor,
+    total: historicalBuffer.length,
+    speed: playbackSpeed,
+    completed: !isReplaying && historicalBuffer.length > 0 && replayCursor >= historicalBuffer.length - 1,
+  }));
 }
 
 startTicker();

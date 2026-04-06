@@ -88,6 +88,24 @@ class MarketClient {
           if (payload.type === 'pong') {
             const rtt = Date.now() - this.lastPingSent;
             useLiveStore.getState().setMetrics({ dispatchLatency: rtt });
+          } else if (payload.type === 'replay-state') {
+            const store = useLiveStore.getState();
+            const total = Math.max(0, Number(payload.total ?? 0));
+            const cursor = Math.max(0, Number(payload.cursor ?? 0));
+            store.setReplayTotalEvents(total);
+            store.setReplayCursor(cursor);
+
+            if (payload.mode === 'LIVE') {
+              store.setReplayMode('LIVE');
+              store.setReplayStatus('IDLE');
+            } else {
+              store.setReplayMode('REPLAY');
+              if (payload.completed) {
+                store.setReplayCompleted();
+              } else {
+                store.setReplayStatus(payload.playing ? 'PLAYING' : 'PAUSED');
+              }
+            }
           }
           break;
         case 'ERROR':
@@ -224,8 +242,8 @@ class MarketClient {
     }
   }
 
-  public startReplay(speed: number = 1) {
-    this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-start', speed } });
+  public startReplay(speed: number = 1, index?: number) {
+    this.worker?.postMessage({ type: 'CONTROL_COMMAND', payload: { type: 'replay-start', speed, index } });
   }
 
   public stopReplay() {

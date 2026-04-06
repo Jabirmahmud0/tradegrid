@@ -1,4 +1,5 @@
 import { RootState } from '../live-store';
+import { NormalizedCandle } from '../../types';
 
 // Selectors are used locally for fine-grained subscriptions.
 // All selectors must return stable references to avoid unnecessary re-renders.
@@ -14,7 +15,7 @@ const EMPTY_ARRAY: never[] = [];
 const EMPTY_ORDERBOOK = { bids: [] as never[], asks: [] as never[], lastUpdateId: 0 } as const;
 
 export const selectCandlesForKey = (symbol: string, interval: string) =>
-  (s: RootState) => s.candles[`${symbol}-${interval}`] || EMPTY_ARRAY as unknown as import('../../store/live-store/candles.slice').NormalizedCandle[];
+  (s: RootState) => s.candles[`${symbol}-${interval}`] || EMPTY_ARRAY as unknown as NormalizedCandle[];
 
 export const selectRecentTrades = (n: number) => {
   // Memoize by `n` via closure. Each call creates a new memoized selector,

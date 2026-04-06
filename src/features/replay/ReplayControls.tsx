@@ -14,15 +14,25 @@ function formatTime(ts: number): string {
 }
 
 export const ReplayControls: React.FC = () => {
-  const { mode, status, speed, progress, setReplayMode, setReplayStatus, setReplaySpeed, setReplayProgress } = useLiveStore();
+  const { mode, status, speed, progress, cursor, totalEvents, setReplayMode, setReplayStatus, setReplaySpeed, setReplayProgress } = useLiveStore();
   const scrubRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const replayTotal = Math.max(totalEvents, 0);
+
+  const seekToProgress = useCallback((pct: number) => {
+    const nextProgress = Math.max(0, Math.min(1, pct));
+    const nextCursor = replayTotal > 1 ? Math.round(nextProgress * (replayTotal - 1)) : 0;
+    setReplayProgress(nextProgress);
+    if (mode === 'REPLAY') {
+      marketClient.seekReplay(nextCursor);
+    }
+  }, [mode, replayTotal, setReplayProgress]);
 
   const handleToggleMode = () => {
     if (mode === 'LIVE') {
       setReplayMode('REPLAY');
       setReplayStatus('PAUSED');
-      marketClient.startReplay(speed);
+      marketClient.startReplay(speed, cursor);
     } else {
       setReplayMode('LIVE');
       setReplayStatus('IDLE');
@@ -35,7 +45,7 @@ export const ReplayControls: React.FC = () => {
     setReplayStatus(nextStatus);
 
     if (nextStatus === 'PLAYING') {
-        marketClient.startReplay(speed);
+        marketClient.startReplay(speed, cursor);
     } else {
         marketClient.stopReplay();
     }
@@ -44,7 +54,7 @@ export const ReplayControls: React.FC = () => {
   const handleSpeedChange = (newSpeed: number) => {
     setReplaySpeed(newSpeed);
     if (status === 'PLAYING') {
-        marketClient.startReplay(newSpeed);
+        marketClient.startReplay(newSpeed, cursor);
     }
   };
 
@@ -53,8 +63,8 @@ export const ReplayControls: React.FC = () => {
     const rect = scrubRef.current.getBoundingClientRect();
     const x = clientX - rect.left;
     const pct = Math.max(0, Math.min(1, x / rect.width));
-    setReplayProgress(pct);
-  }, [setReplayProgress]);
+    seekToProgress(pct);
+  }, [seekToProgress]);
 
   const handleScrubClick = (e: React.MouseEvent<HTMLDivElement>) => {
     scrubToPct(e.clientX);
@@ -80,18 +90,18 @@ export const ReplayControls: React.FC = () => {
     const step = 0.02;
     if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
       e.preventDefault();
-      setReplayProgress(Math.min(1, progress + step));
+      seekToProgress(Math.min(1, progress + step));
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
       e.preventDefault();
-      setReplayProgress(Math.max(0, progress - step));
+      seekToProgress(Math.max(0, progress - step));
     } else if (e.key === 'Home') {
       e.preventDefault();
-      setReplayProgress(0);
+      seekToProgress(0);
     } else if (e.key === 'End') {
       e.preventDefault();
-      setReplayProgress(1);
+      seekToProgress(1);
     }
-  }, [progress, setReplayProgress]);
+  }, [progress, seekToProgress]);
 
   const currentTime = REPLAY_START_TIME + progress * REPLAY_DURATION_MS;
 

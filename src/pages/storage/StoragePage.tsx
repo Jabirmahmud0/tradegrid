@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import { Database, HardDrive, MemoryStick, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { RETENTION_POLICIES } from '../../lib/retention';
+import { useServerStatus } from '../../services/market-data.queries';
 
 export const StoragePage: React.FC = () => {
   const trades = useLiveStore((s) => s.trades);
@@ -11,6 +12,7 @@ export const StoragePage: React.FC = () => {
   const books = useLiveStore((s) => s.books);
   const heatmap = useLiveStore((s) => s.heatmap);
   const debugLog = useLiveStore((s) => s.eventLog);
+  const { data: serverStatus } = useServerStatus();
 
   // Calculate buffer utilization per stream type
   const tradeCapacity = RETENTION_POLICIES.TRADES;
@@ -27,7 +29,6 @@ export const StoragePage: React.FC = () => {
   });
   const candleUtilization = candleCapacity > 0 ? Math.min((totalCandles / candleCapacity) * 100, 100) : 0;
 
-  const bookDeltas = RETENTION_POLICIES.ORDER_BOOK.DELTAS;
   const bookKeys = Object.keys(books).length;
   const bookUtilization = bookKeys > 0 ? Math.min((bookKeys / 100) * 100, 100) : 0;
 
@@ -110,9 +111,9 @@ export const StoragePage: React.FC = () => {
         </Card>
         <Card variant="outline" className="border-[var(--color-border)]">
           <div className="p-3">
-            <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Total Events</div>
+            <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Buffered Events</div>
             <div className="text-2xl font-bold font-mono mt-1 text-[var(--color-text-primary)]">
-              {(trades.length + totalCandles + debugLog.length).toLocaleString()}
+              {(serverStatus?.bufferSize ?? (trades.length + totalCandles + debugLog.length)).toLocaleString()}
             </div>
           </div>
         </Card>

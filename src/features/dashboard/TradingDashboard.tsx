@@ -21,7 +21,7 @@ export const TradingDashboard: React.FC = () => {
   const activeInterval = useLiveStore(state => state.activeInterval);
   const [activeTab, setActiveTab] = React.useState('heatmap');
 
-  const { mode, status, setReplayStatus, speed } = useLiveStore();
+  const { mode, status, setReplayStatus, speed, cursor } = useLiveStore();
 
   // Single hook: manages connection + subscriptions
   useMarketStream(activeSymbol);
@@ -37,7 +37,7 @@ export const TradingDashboard: React.FC = () => {
           if (mode === 'REPLAY') {
             const nextStatus = status === 'PLAYING' ? 'PAUSED' : 'PLAYING';
             setReplayStatus(nextStatus);
-            if (nextStatus === 'PLAYING') marketClient.startReplay(speed);
+            if (nextStatus === 'PLAYING') marketClient.startReplay(speed, cursor);
             else marketClient.stopReplay();
           }
           break;
@@ -50,7 +50,7 @@ export const TradingDashboard: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, status, speed, setReplayStatus]);
+  }, [cursor, mode, status, speed, setReplayStatus]);
 
   const candles = useLiveStore(state => state.candles[`${activeSymbol}-${activeInterval}`] || EMPTY_CANDLES);
 

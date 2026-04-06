@@ -1,31 +1,33 @@
 import * as React from 'react';
 import { useLiveStore } from '../../store/live-store';
 import { Card } from '../../components/ui/Card';
-import { ShieldCheck, Wifi, WifiOff, Activity, Clock, Server, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, Activity, Clock, Server, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useServerStatus } from '../../services/market-data.queries';
 
 export const SecurityPage: React.FC = () => {
   const systemReady = useLiveStore((s) => s.systemReady);
   const metrics = useLiveStore((s) => s.metrics);
   const mode = useLiveStore((s) => s.mode);
+  const dataSource = useLiveStore((s) => s.dataSource);
+  const { data: serverStatus } = useServerStatus();
 
-  // Simulated connection status (in real app, this would come from WebSocket manager)
   const wsStatus: 'connected' | 'reconnecting' | 'disconnected' = systemReady ? 'connected' : 'disconnected';
 
-  const uptime = 99.9;
+  const uptime = serverStatus?.uptime ? Math.max(0, Number(serverStatus.uptime)) : 0;
   const avgLatency = metrics.dispatchLatency ?? 0;
-  const eventsPerSec = metrics.eventsPerSec ?? 0;
   const droppedFrames = metrics.droppedFrames ?? 0;
+  const runtimeMode = dataSource === 'mock' ? 'Local simulator' : dataSource === 'binance' ? 'Binance mainnet' : dataSource === 'binance-testnet' ? 'Binance testnet' : 'Custom source';
 
   const securityChecks = [
-    { label: 'WebSocket Transport', status: wsStatus === 'connected' ? 'pass' : wsStatus === 'reconnecting' ? 'warn' : 'fail', detail: wsStatus === 'connected' ? 'Encrypted binary stream active' : 'Connection unavailable' },
+    { label: 'WebSocket Transport', status: wsStatus === 'connected' ? 'pass' as const : wsStatus !== 'disconnected' ? 'warn' as const : 'fail' as const, detail: wsStatus === 'connected' ? `${runtimeMode} stream active` : 'Connection unavailable' },
     { label: 'MessagePack Serialization', status: 'pass' as const, detail: 'Binary payload encoding verified' },
     { label: 'Worker Isolation', status: 'pass' as const, detail: 'Web Worker sandboxes heavy computation' },
     { label: 'Memory Bounds', status: 'pass' as const, detail: 'All streams use bounded ring buffers' },
     { label: 'Replay Determinism', status: mode === 'REPLAY' ? 'pass' : 'warn' as const, detail: mode === 'REPLAY' ? 'Replay mode active' : 'Live mode - replay engine standby' },
     { label: 'Input Validation', status: 'pass' as const, detail: 'All stream events schema-validated in worker' },
     { label: 'No Sensitive Data Exposure', status: 'pass' as const, detail: 'No auth tokens or PII in streaming payloads' },
-    { label: 'CSP Headers (deployed)', status: 'warn' as const, detail: 'Configured in deployment; dev mode relaxed' },
+    { label: 'Server Health', status: serverStatus?.status === 'UP' ? 'pass' as const : 'warn' as const, detail: serverStatus?.status === 'UP' ? `${serverStatus.clients} clients, ${serverStatus.bufferSize} buffered events` : 'Status endpoint unavailable' },
   ];
 
   const passCount = securityChecks.filter(c => c.status === 'pass').length;
@@ -45,10 +47,10 @@ export const SecurityPage: React.FC = () => {
           <div className="flex items-center gap-3 p-3">
             <div className={cn(
               'h-8 w-8 rounded-sm flex items-center justify-center',
-              wsStatus === 'connected' ? 'bg-green-500/10' : wsStatus === 'reconnecting' ? 'bg-yellow-500/10' : 'bg-red-500/10'
+              wsStatus === 'connected' ? 'bg-green-500/10' : wsStatus !== 'disconnected' ? 'bg-yellow-500/10' : 'bg-red-500/10'
             )}>
               {wsStatus === 'connected' ? <Wifi size={16} className="text-[var(--color-profit)]" /> :
-               wsStatus === 'reconnecting' ? <WifiOff size={16} className="text-[var(--color-warning)]" /> :
+               wsStatus !== 'disconnected' ? <WifiOff size={16} className="text-[var(--color-warning)]" /> :
                <WifiOff size={16} className="text-[var(--color-loss)]" />}
             </div>
             <div>
@@ -56,7 +58,7 @@ export const SecurityPage: React.FC = () => {
               <div className={cn(
                 'text-sm font-bold font-mono capitalize',
                 wsStatus === 'connected' ? 'text-[var(--color-profit)]' :
-                wsStatus === 'reconnecting' ? 'text-[var(--color-warning)]' :
+                wsStatus !== 'disconnected' ? 'text-[var(--color-warning)]' :
                 'text-[var(--color-loss)]'
               )}>{wsStatus}</div>
             </div>
@@ -82,7 +84,7 @@ export const SecurityPage: React.FC = () => {
             </div>
             <div>
               <div className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Uptime</div>
-              <div className="text-sm font-bold font-mono text-[var(--color-profit)]">{uptime}%</div>
+              <div className="text-sm font-bold font-mono text-[var(--color-profit)]">{uptime > 0 ? `${(uptime / 60).toFixed(1)}m` : '--'}</div>
             </div>
           </div>
         </Card>
@@ -140,8 +142,8 @@ export const SecurityPage: React.FC = () => {
           <p><span className="text-[var(--color-text-primary)] font-bold">Transport:</span> WebSocket connection uses binary MessagePack serialization. No raw JSON exposure to the render pipeline.</p>
           <p><span className="text-[var(--color-text-primary)] font-bold">Worker Sandbox:</span> All decode, validation, and normalization occur in an isolated Web Worker. The main thread only receives render-safe, coalesced payloads.</p>
           <p><span className="text-[var(--color-text-primary)] font-bold">Memory Safety:</span> Every stream type uses a fixed-size ring buffer. No unbounded growth. Oldest events are evicted on overflow.</p>
-          <p><span className="text-[var(--color-text-primary)] font-bold">No Auth / PII:</span> This is a mock data system. No authentication, no user accounts, no personally identifiable information in any stream.</p>
-          <p><span className="text-[var(--color-text-primary)] font-bold">Replay Mode:</span> Deterministic playback from a bounded event ring buffer. No external data dependency during replay sessions.</p>
+          <p><span className="text-[var(--color-text-primary)] font-bold">No Auth / PII:</span> The dashboard streams market data only. No user accounts, secrets, or personally identifiable information are processed in the client stream.</p>
+          <p><span className="text-[var(--color-text-primary)] font-bold">Replay Mode:</span> Playback is served from the mock backend&apos;s bounded historical ring buffer and is now tracked with live cursor and total-event state.</p>
         </div>
       </Card>
     </div>

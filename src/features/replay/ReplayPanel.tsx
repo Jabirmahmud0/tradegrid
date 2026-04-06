@@ -5,7 +5,8 @@ import { marketClient } from '../../services/market-client';
 import { cn } from '../../utils';
 
 export const ReplayPanel: React.FC = () => {
-    const { mode, status, speed, progress, metrics, setReplayStatus, setReplaySpeed, setReplayProgress, resetReplay } = useLiveStore();
+    const { mode, status, speed, progress, cursor, totalEvents, metrics, setReplayStatus, setReplaySpeed, setReplayProgress, resetReplay } = useLiveStore();
+    const replayTotal = Math.max(totalEvents, 0);
 
     // Derived state — panel is visible only when in REPLAY mode
     const isPaused = status === 'PAUSED';
@@ -17,7 +18,7 @@ export const ReplayPanel: React.FC = () => {
         setReplayStatus(nextStatus);
 
         if (nextStatus === 'PLAYING') {
-            marketClient.startReplay(speed);
+            marketClient.startReplay(speed, cursor);
         } else {
             marketClient.stopReplay();
         }
@@ -33,6 +34,9 @@ export const ReplayPanel: React.FC = () => {
         const x = e.clientX - rect.left;
         const pct = Math.max(0, Math.min(1, x / rect.width));
         setReplayProgress(pct);
+        if (replayTotal > 0) {
+            marketClient.seekReplay(Math.round(pct * Math.max(0, replayTotal - 1)));
+        }
     };
 
     return (
@@ -102,7 +106,13 @@ export const ReplayPanel: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={() => setReplayProgress(Math.max(0, progress - 0.1))}
+                                onClick={() => {
+                                    const next = Math.max(0, progress - 0.1);
+                                    setReplayProgress(next);
+                                    if (replayTotal > 0) {
+                                        marketClient.seekReplay(Math.round(next * Math.max(0, replayTotal - 1)));
+                                    }
+                                }}
                                 className="p-2 text-zinc-400 hover:text-white transition-colors"
                                 aria-label="Rewind"
                             >
@@ -121,7 +131,13 @@ export const ReplayPanel: React.FC = () => {
                                 {isPaused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}
                             </button>
                             <button
-                                onClick={() => setReplayProgress(Math.min(1, progress + 0.1))}
+                                onClick={() => {
+                                    const next = Math.min(1, progress + 0.1);
+                                    setReplayProgress(next);
+                                    if (replayTotal > 0) {
+                                        marketClient.seekReplay(Math.round(next * Math.max(0, replayTotal - 1)));
+                                    }
+                                }}
                                 className="p-2 text-zinc-400 hover:text-white transition-colors"
                                 aria-label="Fast forward"
                             >
@@ -137,7 +153,7 @@ export const ReplayPanel: React.FC = () => {
                                     onClick={() => {
                                         setReplaySpeed(s);
                                         if (status === 'PLAYING') {
-                                            marketClient.startReplay(s);
+                                            marketClient.startReplay(s, cursor);
                                         }
                                     }}
                                     className={cn(

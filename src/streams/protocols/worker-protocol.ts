@@ -16,7 +16,7 @@ export type MainThreadMessage =
 export type ControlCommand = 
   | { type: 'ping' }
   | { type: 'set-scenario'; mode: 'NORMAL' | 'BURST' | 'FAILURE' }
-  | { type: 'replay-start'; speed: number }
+  | { type: 'replay-start'; speed: number; index?: number }
   | { type: 'replay-stop' }
   | { type: 'replay-seek'; index: number };
 

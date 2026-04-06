@@ -1,73 +1,110 @@
-# TradeGrid ⚡ 
+# TradeGrid
 
-An institutional-grade, high-frequency cryptocurrency trading dashboard architected for extreme scale. By circumventing typical Web Framework bottlenecks using direct HTML5 Canvas API draw commands and Web Worker multi-threading, TradeGrid is capable of streaming **over 50,000 market events per second** at a nominal `60 FPS` frame budget.
+TradeGrid is a high-performance crypto market dashboard built around:
+- WebSocket streaming (Mock server or Binance mainnet/testnet)
+- A Web Worker decode/normalize pipeline
+- A main-thread `requestAnimationFrame` flush loop
+- Canvas-first rendering for the hottest views (chart/heatmap/depth)
 
-![TradeGrid Dashboard](./assets/dashboard-preview.png)
-> Note: Add a real preview screenshot corresponding to the layout here locally over the placeholder.
+This repo contains:
+- `src/`: Vite + React frontend
+- `server/`: Node.js mock market data backend (WebSocket + HTTP)
 
-## 🏗️ Core Architecture
+## Quickstart
 
-```mermaid
-graph TD
-    A[Mock Server<br>Node.js & WS] -- "Binary MessagePack<br>50k events/sec" --> B(Web Worker Thread)
-    B -- "Decodes & Validates" --> C{Normalization Pipe}
-    C -- "Coalesces into frames" --> D[Zustand Ring Buffers]
-    D -- "rAF Flux Loop" --> E[React UI Thread]
-    
-    E -- "DOM Skip" --> F((HTML5 Canvas))
-    E -- "DOM Skip" --> G((TanStack Virtual Grid))
-    
-    classDef highlight fill:#10b981,stroke:#333,stroke-width:2px;
-    class B,F highlight
-```
+Prereqs: Node.js 20+ and npm.
 
-Our architecture relies on three primary acceleration vectors:
-1. **MessagePack via WebSockets**: Streaming normalized binary reduces JSON stringification overhead over the wire by ~40%.
-2. **Coalesced Ingestion**: The Web Worker intercepts the extreme 50k events/sec firehose, squashes overlapping records, and pushes ~60 `rAF` (requestAnimationFrame) consolidated arrays to the Main Thread, preventing React re-render starvation.
-3. **Canvas Engine / CSS Skips**: DOM manipulation is entirely bypassed where it counts. The heavily updated Orderbook Depth and Heatmap use immediate-mode HTML Canvas directives, and the Trade Tape utilizes TanStack virtualization.
-
-## 🚀 Setup & Launch
-
-The project is structured into a Front-End dashboard and an isolated Node.js Mock Backend engine serving the data.
-
-### 1. Prerequisites
-- Node `v20+`
-- `npm`
-
-### 2. Startup (Concurrent)
-Ensure dependencies are locked and launch both services locally via concurrently:
+Install deps:
 
 ```bash
 npm install
 npm install --prefix server
+```
+
+Run frontend + mock server together:
+
+```bash
 npm run dev:all
 ```
-This script simultaneously boots:
-- `http://localhost:5173` (Vite + React)
-- `ws://localhost:4000` (Node Backend)
 
-### 3. Production Backend Testing
-To hook into an external production backend (e.g. Render/Railway/Fly), modify your env file:
+Endpoints:
+- UI: `http://localhost:5173`
+- Mock WS: `ws://localhost:4000`
+- Mock HTTP: `http://localhost:4000`
+
+Run them separately:
+
 ```bash
-# Create .env
-VITE_WS_URL=wss://your-tradegrid-backend.onrender.com
+npm run dev
+npm run mock-server
 ```
 
-## 🧪 Testing Suite
+## Data Sources
 
-TradeGrid is hardened by comprehensive testing methodologies managed through `Vitest` and `Playwright`.
+Use the top-right "Data Source" switcher:
+- Mock Server: local simulator (WebSocket + HTTP)
+- Binance Testnet: live websocket streams (no keys)
+- Binance Mainnet: live websocket streams (no keys)
 
-### CI Procedures
-- **Unit & Integration:** Run core memory buffering logic validation.
-  `npm run test`
-- **End-To-End Simulation:** Playwright invokes virtual headless browsers testing component hydration and real websocket data streaming logic.
-  `npx playwright test`
-- **Performance Profiling:** Memory-leak captures and deterministic replay benchmarks.
+Notes:
+- Binance modes stream trades for a small watchlist and stream depth + klines for the focused symbol.
+- Mock mode provides trades, order book, candles (`1m`, `5m`, `15m`, `1h`, `1D`), and heatmap snapshots.
 
-## 🌐 Deploying to Render
-1. Create a Web Service connected to your repository on [Render](https://render.com/).
-2. Your repository is already pre-configured with a `render.yaml` specification!
-3. Blueprint sync the YAML file inside the Render dashboard to auto-populate the build environments for the standalone `tradegrid-mock-server`.
+## Environment Variables
 
-## 📄 License
-MIT License
+TradeGrid uses HTTP for metadata/history and WebSocket for streaming.
+
+- `VITE_API_BASE_URL` (optional)
+  - Default: `http://localhost:4000`
+  - Used by: symbol list, server status, and mock candle history hydration.
+
+Mock WebSocket URL:
+- Default is `ws://localhost:4000` in the app.
+- To point Mock streaming at a different host, connect with an explicit URL (code path uses `marketClient.connect({ type: 'mock', url })`).
+
+## Scripts
+
+Frontend (`package.json`):
+- `npm run dev`: start Vite dev server
+- `npm run mock-server`: start mock server (via `server/`)
+- `npm run dev:all`: run both concurrently
+- `npm test`: run Vitest
+- `npm run build`: TypeScript build + Vite build (see Known Issues)
+
+Mock backend (`server/package.json`):
+- `npm run start --prefix server`: start mock server with `tsx watch`
+- `npm run build --prefix server`: compile server TypeScript
+
+## Architecture (High Level)
+
+1. Stream ingest: a Web Worker receives WS payloads and decodes/normalizes them.
+2. Coalescing: events are coalesced into per-frame batches (latest candle per symbol/interval, latest heatmap, etc.).
+3. State: bounded ring buffers in Zustand store trades/candles/books.
+4. Render: the UI reads store slices; heavy visuals render via Canvas.
+
+## Testing
+
+```bash
+npm test
+```
+
+There is a Playwright config in the repo. If you want to run e2e:
+
+```bash
+npx playwright test
+```
+
+## Deployment
+
+- Mock server on Render: `render.yaml` is provided (service name `tradegrid-mock-server`).
+- Frontend on Vercel (or similar): `vercel.json` includes an SPA rewrite to `index.html`.
+
+## Troubleshooting
+
+- If you change any files under `server/`, restart the mock server process.
+- If a page throws "Maximum update depth exceeded", it is usually caused by a store selector returning a new array/object each render (e.g. `|| []`). Prefer stable shared fallbacks.
+
+## Known Issues
+
+- `npm run build` currently fails due to pre-existing TypeScript issues in a few non-critical pages/components. Development via `npm run dev` and `npm run dev:all` is the recommended workflow while those are being cleaned up.
+

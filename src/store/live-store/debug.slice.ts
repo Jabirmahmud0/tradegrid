@@ -15,8 +15,10 @@ export interface PerformanceMetrics {
 }
 
 export interface DebugEvent {
+  id?: string;
   ts: number;
   message: string;
+  type?: string;
   level: 'info' | 'warn' | 'error';
 }
 
